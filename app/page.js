@@ -43,7 +43,7 @@ getData();
 async function getData() {
 setLoading(true);
 
-```
+
 const { data: stupiData, error: stupiError } =
   await supabase
     .from("stupi")
@@ -92,14 +92,14 @@ if (verificariError) {
 }
 
 setLoading(false);
-```
+
 
 }
 
 function openVerification(stup) {
 setSelectedStup(stup);
 
-```
+
 setVerification({
   data: new Date().toISOString().split("T")[0],
   matca: stup.matca || "",
@@ -112,14 +112,13 @@ setVerification({
 });
 
 setShowVerification(true);
-```
 
 }
 
 async function saveVerification() {
 if (!selectedStup) return;
 
-```
+
 if (!verification.data) {
   alert("Completează data verificării.");
   return;
@@ -173,7 +172,7 @@ if (error) {
 }
 
 setSavingVerification(false);
-```
+
 
 }
 
@@ -183,7 +182,7 @@ alert("Completează tratamentul și data.");
 return;
 }
 
-```
+
 const confirmare = window.confirm(
   "Ești sigur că vrei să adaugi tratamentul \"" +
     treatment.tip +
@@ -236,7 +235,7 @@ if (error) {
 }
 
 setSavingTreatment(false);
-```
+
 
 }
 
@@ -251,7 +250,7 @@ const confirmare = window.confirm(
     " stupi?\n\nDetalii: " +
     (batch.detalii || "Fără detalii")
 );
-```
+
 if (!confirmare) return;
 
 setDeletingBatch(batch.key);
@@ -306,7 +305,7 @@ if (error) {
 }
 
 setDeletingBatch(null);
-```
+
 
 }
 
@@ -369,7 +368,7 @@ tratament.data_tratament +
 "|" +
 (tratament.detalii || "");
 
-```
+
 if (!batchesMap[key]) {
   batchesMap[key] = {
     key,
@@ -383,7 +382,7 @@ if (!batchesMap[key]) {
 }
 
 batchesMap[key].count++;
-```
+
 
 });
 
@@ -392,7 +391,7 @@ Object.values(batchesMap);
 
 return ( <main style={styles.page}>
 
-```
+
   <header style={styles.header}>
     <div>
       <h1 style={styles.title}>
@@ -1049,7 +1048,7 @@ value,
 }) {
 return ( <div style={styles.statCard}>
 
-```
+
   <div style={styles.statIcon}>
     {icon}
   </div>
@@ -1079,7 +1078,7 @@ onChange,
 }) {
 return ( <div>
 
-```
+
   <label style={styles.label}>
     {label}
   </label>
@@ -1095,7 +1094,6 @@ return ( <div>
   />
 
 </div>
-```
 
 );
 }
