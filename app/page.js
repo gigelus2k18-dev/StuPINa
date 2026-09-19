@@ -536,6 +536,12 @@ return ( <main style={styles.page}>
       onClick={() =>
         setShowTreatment(true)
       }
+        <Link
+  href="/tratamente"
+  style={styles.historyButton}
+>
+  📜 Istoric tratamente
+</Link>
     >
       💊 Tratamente pentru toți stupii
     </button>
@@ -1099,6 +1105,14 @@ return ( <div>
 }
 
 const styles = {
+  historyButton: {
+  padding: "12px 18px",
+  background: "#5c6bc0",
+  color: "#fff",
+  borderRadius: "9px",
+  textDecoration: "none",
+  fontWeight: "bold",
+},
 
 page: {
 minHeight: "100vh",
