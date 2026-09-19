@@ -6,6 +6,7 @@ import { supabase } from "./lib/supabase";
 
 export default function Home() {
   const [stupi, setStupi] = useState([]);
+  const [roiuri, setRoiuri] = useState([]);
   const [tratamente, setTratamente] = useState([]);
   const [verificari, setVerificari] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,11 +14,16 @@ export default function Home() {
 
   const [showTreatment, setShowTreatment] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
+  const [showAddStup, setShowAddStup] = useState(false);
+
   const [selectedStup, setSelectedStup] = useState(null);
 
   const [savingTreatment, setSavingTreatment] = useState(false);
   const [savingVerification, setSavingVerification] = useState(false);
+  const [savingStup, setSavingStup] = useState(false);
   const [deletingBatch, setDeletingBatch] = useState(null);
+
+  const [newStupNumber, setNewStupNumber] = useState("");
 
   const [treatment, setTreatment] = useState({
     tip: "Amitraz",
@@ -56,6 +62,21 @@ export default function Home() {
     }
 
     setStupi(stupiData || []);
+
+    const { data: roiuriData, error: roiuriError } = await supabase
+      .from("roiuri")
+      .select("*")
+      .order("numar", { ascending: true });
+
+    if (roiuriError) {
+      console.error(roiuriError);
+      alert(
+        "Nu s-au putut încărca roiurile/nucleele: " +
+          roiuriError.message
+      );
+    } else {
+      setRoiuri(roiuriData || []);
+    }
 
     const { data: tratamenteData, error: tratamenteError } =
       await supabase
@@ -165,6 +186,77 @@ export default function Home() {
     }
 
     setSavingVerification(false);
+  }
+
+  async function addStup() {
+    const number = newStupNumber.trim();
+
+    if (!number) {
+      alert("Introdu numărul stupului.");
+      return;
+    }
+
+    const numericNumber = Number(number);
+
+    if (!Number.isInteger(numericNumber) || numericNumber <= 0) {
+      alert("Numărul stupului trebuie să fie un număr întreg pozitiv.");
+      return;
+    }
+
+    const alreadyExists = stupi.some(
+      (stup) => Number(stup.numar_stup) === numericNumber
+    );
+
+    if (alreadyExists) {
+      alert("Există deja un stup cu numărul " + numericNumber + ".");
+      return;
+    }
+
+    setSavingStup(true);
+
+    const { data, error } = await supabase
+      .from("stupi")
+      .insert({
+        numar_stup: numericNumber,
+        matca: null,
+        an_matca: null,
+        rame: null,
+        rame_puiet: null,
+        rame_miere: null,
+        rame_polen: null,
+        miere_kg: 0,
+        status: "Activ",
+        observatii: null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error(error);
+      alert(
+        "Eroare la adăugarea stupului: " +
+          error.message
+      );
+    } else {
+      setStupi((prev) =>
+        [...prev, data].sort(
+          (a, b) =>
+            Number(a.numar_stup) -
+            Number(b.numar_stup)
+        )
+      );
+
+      setNewStupNumber("");
+      setShowAddStup(false);
+
+      alert(
+        "Stupul " +
+          numericNumber +
+          " a fost adăugat cu succes!"
+      );
+    }
+
+    setSavingStup(false);
   }
 
   async function applyTreatmentToAll() {
@@ -341,12 +433,21 @@ export default function Home() {
       Number(stup.rame_puiet || 0) === 0
   );
 
-  const filteredStupi = stupi.filter(
-    (stup) =>
-      String(stup.numar_stup)
-        .toLowerCase()
-        .includes(search.toLowerCase())
+  const searchTerm = search.trim().toLowerCase();
+
+  const filteredStupi = stupi.filter((stup) =>
+    String(stup.numar_stup)
+      .toLowerCase()
+      .includes(searchTerm)
   );
+
+  const filteredRoiuri = roiuri.filter((roi) =>
+    String(roi.numar)
+      .toLowerCase()
+      .includes(searchTerm)
+  );
+
+  const hasSearch = searchTerm.length > 0;
 
   const batchesMap = {};
 
@@ -486,21 +587,113 @@ export default function Home() {
 
       <section style={styles.searchSection}>
         <div style={styles.searchTitle}>
-          🔍 Caută un stup
+          🔍 Caută în stupină
         </div>
 
         <input
           style={styles.searchInput}
           type="text"
-          placeholder="Introdu numărul stupului..."
+          placeholder="Ex: 25, 1234, R1, R15..."
           value={search}
           onChange={(e) =>
             setSearch(e.target.value)
           }
         />
+
+        {hasSearch && (
+          <div style={styles.searchResults}>
+            {filteredStupi.length === 0 &&
+            filteredRoiuri.length === 0 ? (
+              <div style={styles.noSearchResults}>
+                Nu am găsit niciun stup, roi sau nucleu
+                pentru „{search}”.
+              </div>
+            ) : (
+              <>
+                {filteredStupi.length > 0 && (
+                  <div style={styles.searchGroup}>
+                    <div style={styles.searchGroupTitle}>
+                      🐝 Stupi
+                    </div>
+
+                    <div style={styles.searchItems}>
+                      {filteredStupi.map((stup) => (
+                        <Link
+                          key={"stup-" + stup.id}
+                          href={
+                            "/stupi/" +
+                            stup.numar_stup
+                          }
+                          style={styles.searchStupItem}
+                        >
+                          <div>
+                            <strong>
+                              Stupul {stup.numar_stup}
+                            </strong>
+
+                            <div style={styles.searchItemDetails}>
+                              {stup.matca
+                                ? "👑 Cu matcă"
+                                : "⚠️ Fără matcă"}
+                              {" • "}
+                              {stup.status || "Fără status"}
+                            </div>
+                          </div>
+
+                          <span>→</span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {filteredRoiuri.length > 0 && (
+                  <div style={styles.searchGroup}>
+                    <div style={styles.searchGroupTitle}>
+                      🐝 Roiuri / Nuclee
+                    </div>
+
+                    <div style={styles.searchItems}>
+                      {filteredRoiuri.map((roi) => (
+                        <Link
+                          key={"roi-" + roi.id}
+                          href="/roiuri"
+                          style={styles.searchRoiItem}
+                        >
+                          <div>
+                            <strong>
+                              {roi.tip} {roi.numar}
+                            </strong>
+
+                            <div style={styles.searchItemDetails}>
+                              {roi.status || "Fără status"}
+                              {roi.origine
+                                ? " • Origine: " +
+                                  roi.origine
+                                : ""}
+                            </div>
+                          </div>
+
+                          <span>→</span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </section>
 
       <section style={styles.actionsSection}>
+        <button
+          style={styles.addStupButton}
+          onClick={() => setShowAddStup(true)}
+        >
+          ➕ Adaugă stup
+        </button>
+
         <Link
           href="/statistici"
           style={styles.statsButton}
@@ -733,10 +926,63 @@ export default function Home() {
         </table>
       </div>
 
-      {filteredStupi.length === 0 && (
+      {!hasSearch && filteredStupi.length === 0 && (
         <div style={styles.noResults}>
-          Nu am găsit niciun stup cu numărul
-          „{search}”.
+          Nu există stupi înregistrati.
+        </div>
+      )}
+
+      {showAddStup && (
+        <div style={styles.overlay}>
+          <div style={styles.smallModal}>
+            <button
+              style={styles.closeButton}
+              onClick={() =>
+                setShowAddStup(false)
+              }
+            >
+              ×
+            </button>
+
+            <h2 style={styles.modalTitle}>
+              ➕ Adaugă stup nou
+            </h2>
+
+            <p style={styles.modalDescription}>
+              Introdu numărul noului stup.
+            </p>
+
+            <label style={styles.label}>
+              Număr stup
+            </label>
+
+            <input
+              style={styles.input}
+              type="number"
+              min="1"
+              value={newStupNumber}
+              placeholder="Ex: 201"
+              onChange={(e) =>
+                setNewStupNumber(e.target.value)
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  addStup();
+                }
+              }}
+              autoFocus
+            />
+
+            <button
+              style={styles.confirmButton}
+              onClick={addStup}
+              disabled={savingStup}
+            >
+              {savingStup
+                ? "Se adaugă..."
+                : "💾 Adaugă stupul"}
+            </button>
+          </div>
         </div>
       )}
 
@@ -1174,11 +1420,82 @@ const styles = {
     fontSize: "16px",
   },
 
+  searchResults: {
+    marginTop: "15px",
+    borderTop: "1px solid #eee",
+    paddingTop: "15px",
+  },
+
+  searchGroup: {
+    marginBottom: "15px",
+  },
+
+  searchGroupTitle: {
+    fontWeight: "bold",
+    fontSize: "15px",
+    marginBottom: "8px",
+  },
+
+  searchItems: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "7px",
+  },
+
+  searchStupItem: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "11px 13px",
+    borderRadius: "9px",
+    background: "#f4f4f4",
+    color: "#222",
+    textDecoration: "none",
+    border: "1px solid #e5e5e5",
+  },
+
+  searchRoiItem: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "11px 13px",
+    borderRadius: "9px",
+    background: "#fff8df",
+    color: "#5d4a00",
+    textDecoration: "none",
+    border: "1px solid #eadb9a",
+  },
+
+  searchItemDetails: {
+    marginTop: "3px",
+    color: "#777",
+    fontSize: "12px",
+  },
+
+  noSearchResults: {
+    padding: "12px",
+    textAlign: "center",
+    color: "#777",
+    background: "#f7f7f7",
+    borderRadius: "8px",
+  },
+
   actionsSection: {
     display: "flex",
     gap: "12px",
     marginBottom: "25px",
     flexWrap: "wrap",
+  },
+
+  addStupButton: {
+    padding: "12px 18px",
+    background: "#2e7d32",
+    color: "#fff",
+    border: "none",
+    borderRadius: "9px",
+    cursor: "pointer",
+    fontWeight: "bold",
+    fontSize: "14px",
   },
 
   statsButton: {
@@ -1368,6 +1685,17 @@ const styles = {
     maxWidth: "550px",
     maxHeight: "90vh",
     overflowY: "auto",
+    background: "#fff",
+    borderRadius: "18px",
+    padding: "30px",
+    position: "relative",
+    boxShadow:
+      "0 10px 40px rgba(0,0,0,0.2)",
+  },
+
+  smallModal: {
+    width: "100%",
+    maxWidth: "420px",
     background: "#fff",
     borderRadius: "18px",
     padding: "30px",
