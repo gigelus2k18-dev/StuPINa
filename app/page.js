@@ -526,6 +526,12 @@ export default function Home() {
           📜 Istoric tratamente
         </Link>
       </section>
+            <Link
+  href="/roiuri"
+  style={styles.historyButton}
+>
+  🐝 Roiuri / Nuclee
+</Link>
 
       <section style={styles.batchSection}>
         <div style={styles.batchHeader}>
