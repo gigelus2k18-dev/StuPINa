@@ -1,18 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 
 export default function StupinaPage() {
   const params = useParams();
-  const router = useRouter();
   const id = params.id;
 
   const [stupina, setStupina] = useState(null);
   const [stupi, setStupi] = useState([]);
   const [roiuri, setRoiuri] = useState([]);
+
   const [availableStupi, setAvailableStupi] = useState([]);
   const [availableRoiuri, setAvailableRoiuri] = useState([]);
 
@@ -38,17 +38,27 @@ export default function StupinaPage() {
     observatii: "",
   });
 
+  useEffect(() => {
+    if (id) {
+      getData();
+    }
+  }, [id]);
+
   async function getData() {
     setLoading(true);
 
-    const { data: stupinaData, error: stupinaError } = await supabase
+    // STUPINA
+    const {
+      data: stupinaData,
+      error: stupinaError,
+    } = await supabase
       .from("stupine")
       .select("*")
       .eq("id", id)
       .single();
 
     if (stupinaError) {
-      console.error(stupinaError);
+      console.error("EROARE STUPINA:", stupinaError);
       alert("Nu am putut încărca stupina.");
       setLoading(false);
       return;
@@ -56,54 +66,82 @@ export default function StupinaPage() {
 
     setStupina(stupinaData);
 
-    const { data: stupiData, error: stupiError } = await supabase
+    // STUPI DIN ACEASTĂ STUPINĂ
+    const {
+      data: stupiData,
+      error: stupiError,
+    } = await supabase
       .from("stupi")
       .select("*")
       .eq("stupina_id", id)
       .order("numar_stup");
 
     if (stupiError) {
-      console.error(stupiError);
+      console.error("EROARE STUPI:", stupiError);
       alert("Eroare la încărcarea stupilor.");
     } else {
       setStupi(stupiData || []);
     }
 
-    const { data: roiuriData, error: roiuriError } = await supabase
+    // ROIURI DIN ACEASTĂ STUPINĂ
+    const {
+      data: roiuriData,
+      error: roiuriError,
+    } = await supabase
       .from("roiuri")
       .select("*")
       .eq("stupina_id", id)
       .order("numar");
 
     if (roiuriError) {
-      console.error(roiuriError);
-      alert("Eroare la încărcarea roiurilor.");
+      console.error("EROARE ROIURI:", roiuriError);
+
+      alert(
+        "Eroare la încărcarea roiurilor.\n\n" +
+          roiuriError.message
+      );
+
+      setRoiuri([]);
     } else {
       setRoiuri(roiuriData || []);
     }
 
-    const { data: allStupi } = await supabase
+    // TOȚI STUPII - pentru alegerea celor existenți
+    const {
+      data: allStupi,
+      error: allStupiError,
+    } = await supabase
       .from("stupi")
       .select("*")
       .order("numar_stup");
 
-    setAvailableStupi(allStupi || []);
+    if (allStupiError) {
+      console.error("EROARE TOȚI STUPII:", allStupiError);
+    } else {
+      setAvailableStupi(allStupi || []);
+    }
 
-    const { data: allRoiuri } = await supabase
+    // TOATE ROIURILE - pentru alegerea celor existente
+    const {
+      data: allRoiuri,
+      error: allRoiuriError,
+    } = await supabase
       .from("roiuri")
       .select("*")
       .order("numar");
 
-    setAvailableRoiuri(allRoiuri || []);
+    if (allRoiuriError) {
+      console.error("EROARE TOATE ROIURILE:", allRoiuriError);
+    } else {
+      setAvailableRoiuri(allRoiuri || []);
+    }
 
     setLoading(false);
   }
 
-  useEffect(() => {
-    if (id) {
-      getData();
-    }
-  }, [id]);
+  // =========================
+  // VERIFICARE
+  // =========================
 
   function openVerification(familie) {
     setSelectedFamilie(familie);
@@ -131,16 +169,18 @@ export default function StupinaPage() {
 
     setSaving(true);
 
-    const isStup = selectedFamilie.tipFamilie === "Stup";
+    const esteStup = selectedFamilie.tipFamilie === "Stup";
 
     const verificationData = {
       data_verificare: verification.data_verificare,
-      matca: verification.matca,
+      matca: verification.matca || null,
       are_matca: verification.are_matca,
       an_matca: verification.an_matca
         ? Number(verification.an_matca)
         : null,
-      rame: verification.rame ? Number(verification.rame) : 0,
+      rame: verification.rame
+        ? Number(verification.rame)
+        : 0,
       rame_puiet: verification.rame_puiet
         ? Number(verification.rame_puiet)
         : 0,
@@ -153,30 +193,42 @@ export default function StupinaPage() {
       observatii: verification.observatii || null,
     };
 
-    if (isStup) {
+    if (esteStup) {
       verificationData.stup_id = selectedFamilie.id;
     } else {
       verificationData.roi_id = selectedFamilie.id;
     }
 
-    const { error: verificationError } = await supabase
+    const {
+      error: verificationError,
+    } = await supabase
       .from("verificari")
       .insert([verificationData]);
 
     if (verificationError) {
-      console.error(verificationError);
-      alert("Eroare la salvarea verificării.");
+      console.error(
+        "EROARE VERIFICARE:",
+        verificationError
+      );
+
+      alert(
+        "Eroare la salvarea verificării:\n\n" +
+          verificationError.message
+      );
+
       setSaving(false);
       return;
     }
 
     const updateData = {
-      matca: verification.matca,
+      matca: verification.matca || null,
       are_matca: verification.are_matca,
       an_matca: verification.an_matca
         ? Number(verification.an_matca)
         : null,
-      rame: verification.rame ? Number(verification.rame) : 0,
+      rame: verification.rame
+        ? Number(verification.rame)
+        : 0,
       rame_puiet: verification.rame_puiet
         ? Number(verification.rame_puiet)
         : 0,
@@ -189,16 +241,24 @@ export default function StupinaPage() {
       observatii: verification.observatii || null,
     };
 
-    const table = isStup ? "stupi" : "roiuri";
+    const tabel = esteStup ? "stupi" : "roiuri";
 
-    const { error: updateError } = await supabase
-      .from(table)
+    const {
+      error: updateError,
+    } = await supabase
+      .from(tabel)
       .update(updateData)
       .eq("id", selectedFamilie.id);
 
     if (updateError) {
-      console.error(updateError);
-      alert("Verificarea s-a salvat, dar familia nu a putut fi actualizată.");
+      console.error(
+        "EROARE UPDATE:",
+        updateError
+      );
+
+      alert(
+        "Verificarea a fost salvată, dar datele familiei nu au putut fi actualizate."
+      );
     } else {
       alert("Verificarea a fost salvată!");
     }
@@ -210,6 +270,10 @@ export default function StupinaPage() {
     getData();
   }
 
+  // =========================
+  // ADAUGĂ STUP EXISTENT
+  // =========================
+
   async function addExistingStup(stup) {
     const confirmare = window.confirm(
       `Adaugi stupul nr. ${stup.numar_stup} în stupina "${stupina?.nume}"?`
@@ -217,7 +281,9 @@ export default function StupinaPage() {
 
     if (!confirmare) return;
 
-    const { error } = await supabase
+    const {
+      error,
+    } = await supabase
       .from("stupi")
       .update({
         stupina_id: id,
@@ -225,23 +291,38 @@ export default function StupinaPage() {
       .eq("id", stup.id);
 
     if (error) {
-      console.error(error);
-      alert("Nu am putut adăuga stupul.");
+      console.error("EROARE ADAUGARE STUP:", error);
+
+      alert(
+        "Nu am putut adăuga stupul:\n\n" +
+          error.message
+      );
+
       return;
     }
 
-    alert(`Stupul nr. ${stup.numar_stup} a fost adăugat în stupină.`);
+    alert(
+      `Stupul nr. ${stup.numar_stup} a fost adăugat în ${stupina.nume}.`
+    );
+
+    setShowAddStup(false);
     getData();
   }
 
+  // =========================
+  // SCOATE STUP
+  // =========================
+
   async function removeStup(stup) {
     const confirmare = window.confirm(
-      `Scoți stupul nr. ${stup.numar_stup} din această stupină?`
+      `Scoți stupul nr. ${stup.numar_stup} din stupina ${stupina?.nume}?`
     );
 
     if (!confirmare) return;
 
-    const { error } = await supabase
+    const {
+      error,
+    } = await supabase
       .from("stupi")
       .update({
         stupina_id: null,
@@ -249,22 +330,33 @@ export default function StupinaPage() {
       .eq("id", stup.id);
 
     if (error) {
-      console.error(error);
-      alert("Nu am putut scoate stupul din stupină.");
+      console.error("EROARE SCOATERE STUP:", error);
+
+      alert(
+        "Nu am putut scoate stupul:\n\n" +
+          error.message
+      );
+
       return;
     }
 
     getData();
   }
 
+  // =========================
+  // ADAUGĂ ROI EXISTENT
+  // =========================
+
   async function addExistingRoi(roi) {
     const confirmare = window.confirm(
-      `Adaugi ${roi.tip || "roi"} nr. ${roi.numar} în stupina "${stupina?.nume}"?`
+      `Adaugi ${roi.tip || "Roi"} nr. ${roi.numar} în stupina "${stupina?.nume}"?`
     );
 
     if (!confirmare) return;
 
-    const { error } = await supabase
+    const {
+      error,
+    } = await supabase
       .from("roiuri")
       .update({
         stupina_id: id,
@@ -272,23 +364,36 @@ export default function StupinaPage() {
       .eq("id", roi.id);
 
     if (error) {
-      console.error(error);
-      alert("Nu am putut adăuga roiul.");
+      console.error("EROARE ADAUGARE ROI:", error);
+
+      alert(
+        "Nu am putut adăuga roiul:\n\n" +
+          error.message
+      );
+
       return;
     }
 
     alert("Roiul a fost adăugat în stupină.");
+
+    setShowAddRoi(false);
     getData();
   }
 
+  // =========================
+  // SCOATE ROI
+  // =========================
+
   async function removeRoi(roi) {
     const confirmare = window.confirm(
-      `Scoți ${roi.tip || "roi"} nr. ${roi.numar} din această stupină?`
+      `Scoți ${roi.tip || "Roi"} nr. ${roi.numar} din stupina ${stupina?.nume}?`
     );
 
     if (!confirmare) return;
 
-    const { error } = await supabase
+    const {
+      error,
+    } = await supabase
       .from("roiuri")
       .update({
         stupina_id: null,
@@ -296,16 +401,27 @@ export default function StupinaPage() {
       .eq("id", roi.id);
 
     if (error) {
-      console.error(error);
-      alert("Nu am putut scoate roiul din stupină.");
+      console.error("EROARE SCOATERE ROI:", error);
+
+      alert(
+        "Nu am putut scoate roiul:\n\n" +
+          error.message
+      );
+
       return;
     }
 
     getData();
   }
 
+  // =========================
+  // STATUS STUP
+  // =========================
+
   async function updateStupStatus(stupId, status) {
-    const { error } = await supabase
+    const {
+      error,
+    } = await supabase
       .from("stupi")
       .update({ status })
       .eq("id", stupId);
@@ -317,13 +433,21 @@ export default function StupinaPage() {
 
     setStupi((prev) =>
       prev.map((stup) =>
-        stup.id === stupId ? { ...stup, status } : stup
+        stup.id === stupId
+          ? { ...stup, status }
+          : stup
       )
     );
   }
 
+  // =========================
+  // STATUS ROI
+  // =========================
+
   async function updateRoiStatus(roiId, status) {
-    const { error } = await supabase
+    const {
+      error,
+    } = await supabase
       .from("roiuri")
       .update({ status })
       .eq("id", roiId);
@@ -335,10 +459,16 @@ export default function StupinaPage() {
 
     setRoiuri((prev) =>
       prev.map((roi) =>
-        roi.id === roiId ? { ...roi, status } : roi
+        roi.id === roiId
+          ? { ...roi, status }
+          : roi
       )
     );
   }
+
+  // =========================
+  // TABEL
+  // =========================
 
   const familiiTabel = [
     ...stupi.map((stup) => ({
@@ -359,7 +489,10 @@ export default function StupinaPage() {
     })),
 
     ...roiuri.map((roi) => ({
-      tipFamilie: roi.tip === "Nucleu" ? "Nucleu" : "Roi",
+      tipFamilie:
+        roi.tip === "Nucleu"
+          ? "Nucleu"
+          : "Roi",
       id: roi.id,
       numar: roi.numar,
       matca: roi.matca,
@@ -377,60 +510,79 @@ export default function StupinaPage() {
     })),
   ];
 
-  const filteredFamilii = familiiTabel.filter((familie) =>
-    String(familie.numar || "")
-      .toLowerCase()
-      .includes(search.toLowerCase())
+  const filteredFamilii = familiiTabel.filter(
+    (familie) =>
+      String(familie.numar || "")
+        .toLowerCase()
+        .includes(search.toLowerCase())
   );
+
+  // =========================
+  // STATISTICI
+  // =========================
 
   const totalFamilii = familiiTabel.length;
 
   const totalMiere = familiiTabel.reduce(
-    (sum, f) => sum + Number(f.miere_kg || 0),
+    (sum, familie) =>
+      sum + Number(familie.miere_kg || 0),
     0
   );
 
   const totalPuiet = familiiTabel.reduce(
-    (sum, f) => sum + Number(f.rame_puiet || 0),
+    (sum, familie) =>
+      sum + Number(familie.rame_puiet || 0),
     0
   );
 
   const totalMiereRame = familiiTabel.reduce(
-    (sum, f) => sum + Number(f.rame_miere || 0),
+    (sum, familie) =>
+      sum + Number(familie.rame_miere || 0),
     0
   );
 
   const totalPolen = familiiTabel.reduce(
-    (sum, f) => sum + Number(f.rame_polen || 0),
+    (sum, familie) =>
+      sum + Number(familie.rame_polen || 0),
     0
   );
 
   const cuMatca = familiiTabel.filter(
-    (f) => f.are_matca === true || f.matca === "Da"
+    (familie) =>
+      familie.are_matca === true ||
+      familie.matca === "Da"
   ).length;
 
-  const faraMatca = totalFamilii - cuMatca;
+  const faraMatca =
+    totalFamilii - cuMatca;
 
   const active = familiiTabel.filter(
-    (f) => f.status === "Activ"
+    (familie) =>
+      familie.status === "Activ"
   ).length;
 
-  const inactive = familiiTabel.filter(
-    (f) => f.status === "Inactiv"
-  ).length;
+  const stupiDisponibili =
+    availableStupi.filter(
+      (stup) =>
+        stup.stupina_id !== id
+    );
 
-  const stupiDisponibili = availableStupi.filter(
-    (stup) => !stup.stupina_id || stup.stupina_id !== id
-  );
+  const roiuriDisponibile =
+    availableRoiuri.filter(
+      (roi) =>
+        roi.stupina_id !== id
+    );
 
-  const roiuriDisponibile = availableRoiuri.filter(
-    (roi) => !roi.stupina_id || roi.stupina_id !== id
-  );
+  // =========================
+  // LOADING
+  // =========================
 
   if (loading) {
     return (
       <main style={styles.page}>
-        <div style={styles.loading}>Se încarcă stupina...</div>
+        <div style={styles.loading}>
+          Se încarcă stupina...
+        </div>
       </main>
     );
   }
@@ -439,27 +591,40 @@ export default function StupinaPage() {
     return (
       <main style={styles.page}>
         <h1>Stupina nu a fost găsită.</h1>
-        <Link href="/stupine">← Înapoi la stupine</Link>
+
+        <Link href="/stupine">
+          ← Înapoi la stupine
+        </Link>
       </main>
     );
   }
+
+  // =========================
+  // PAGINA
+  // =========================
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
 
-        <Link href="/stupine" style={styles.back}>
+        <Link
+          href="/stupine"
+          style={styles.back}
+        >
           ← Înapoi la stupine
         </Link>
 
         <div style={styles.header}>
+
           <div>
             <h1 style={styles.title}>
               🐝 {stupina.nume}
             </h1>
 
             <div style={styles.location}>
-              📍 {stupina.locatie || "Locație nespecificată"}
+              📍{" "}
+              {stupina.locatie ||
+                "Locație nespecificată"}
             </div>
 
             {stupina.observatii && (
@@ -470,23 +635,33 @@ export default function StupinaPage() {
           </div>
 
           <div style={styles.headerButtons}>
+
             <button
-              onClick={() => setShowAddStup(true)}
+              onClick={() =>
+                setShowAddStup(true)
+              }
               style={styles.primaryButton}
             >
               ➕ Adaugă stup existent
             </button>
 
             <button
-              onClick={() => setShowAddRoi(true)}
+              onClick={() =>
+                setShowAddRoi(true)
+              }
               style={styles.secondaryButton}
             >
               🐝 Adaugă roi existent
             </button>
+
           </div>
+
         </div>
 
+        {/* STATISTICI */}
+
         <div style={styles.stats}>
+
           <div style={styles.stat}>
             <strong>{totalFamilii}</strong>
             <span>Familii</span>
@@ -513,7 +688,9 @@ export default function StupinaPage() {
           </div>
 
           <div style={styles.stat}>
-            <strong>{totalMiere.toFixed(1)}</strong>
+            <strong>
+              {totalMiere.toFixed(1)}
+            </strong>
             <span>Kg miere</span>
           </div>
 
@@ -526,6 +703,7 @@ export default function StupinaPage() {
             <strong>{active}</strong>
             <span>Active</span>
           </div>
+
         </div>
 
         {faraMatca > 0 && (
@@ -534,36 +712,54 @@ export default function StupinaPage() {
           </div>
         )}
 
+        {/* CĂUTARE */}
+
         <div style={styles.toolbar}>
+
           <input
             type="text"
             placeholder="🔎 Caută după număr..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) =>
+              setSearch(e.target.value)
+            }
             style={styles.search}
           />
 
           <div style={styles.smallStats}>
-            🍯 {totalMiereRame} rame miere ·
-            🌼 {totalPolen} rame polen
+            🍯 {totalMiereRame} rame miere · 🌼{" "}
+            {totalPolen} rame polen
           </div>
+
         </div>
 
+        {/* TABEL */}
+
         <div style={styles.card}>
+
           <div style={styles.cardHeader}>
-            <h2>Familiile din {stupina.nume}</h2>
-            <span>{filteredFamilii.length} rezultate</span>
+            <h2>
+              Familiile din {stupina.nume}
+            </h2>
+
+            <span>
+              {filteredFamilii.length} rezultate
+            </span>
           </div>
 
           {filteredFamilii.length === 0 ? (
             <div style={styles.empty}>
-              Nu există încă familii în această stupină.
+              Nu există încă familii în această
+              stupină.
               <br />
-              Folosește butoanele de mai sus pentru a adăuga stupi sau roiuri existente.
+              Folosește butoanele de mai sus pentru
+              a adăuga stupi sau roiuri existente.
             </div>
           ) : (
             <div style={styles.tableWrap}>
+
               <table style={styles.table}>
+
                 <thead>
                   <tr>
                     <th>Tip</th>
@@ -583,207 +779,327 @@ export default function StupinaPage() {
                 </thead>
 
                 <tbody>
-                  {filteredFamilii.map((familie) => {
-                    const esteStup = familie.tipFamilie === "Stup";
 
-                    return (
-                      <tr key={`${familie.tipFamilie}-${familie.id}`}>
+                  {filteredFamilii.map(
+                    (familie) => {
 
-                        <td>
-                          <span
-                            style={{
-                              ...styles.badge,
-                              background: esteStup
-                                ? "#e8f5e9"
-                                : "#fff3cd",
-                            }}
-                          >
-                            {familie.tipFamilie}
-                          </span>
-                        </td>
+                      const esteStup =
+                        familie.tipFamilie ===
+                        "Stup";
 
-                        <td>
-                          {esteStup ? (
-                            <Link
-                              href={`/stupi/${familie.numar}`}
-                              style={styles.numberLink}
+                      return (
+                        <tr
+                          key={`${familie.tipFamilie}-${familie.id}`}
+                        >
+
+                          <td>
+                            <span
+                              style={{
+                                ...styles.badge,
+                                background:
+                                  esteStup
+                                    ? "#e8f5e9"
+                                    : "#fff3cd",
+                              }}
                             >
-                              #{familie.numar}
-                            </Link>
-                          ) : (
-                            <strong>#{familie.numar}</strong>
-                          )}
-                        </td>
+                              {familie.tipFamilie}
+                            </span>
+                          </td>
 
-                        <td>
-                          {familie.matca || "-"}
-                        </td>
+                          <td>
 
-                        <td>
-                          {familie.are_matca === true ||
-                          familie.matca === "Da"
-                            ? "✅ Da"
-                            : "❌ Nu"}
-                        </td>
-
-                        <td>
-                          {familie.an_matca || "-"}
-                        </td>
-
-                        <td>
-                          {familie.rame ?? 0}
-                        </td>
-
-                        <td>
-                          {familie.rame_puiet ?? 0}
-                        </td>
-
-                        <td>
-                          {Number(familie.miere_kg || 0).toFixed(1)}
-                        </td>
-
-                        <td>
-                          {familie.rame_polen ?? 0}
-                        </td>
-
-                        <td>
-                          <select
-                            value={familie.status || ""}
-                            onChange={(e) => {
-                              if (esteStup) {
-                                updateStupStatus(
-                                  familie.id,
-                                  e.target.value
-                                );
-                              } else {
-                                updateRoiStatus(
-                                  familie.id,
-                                  e.target.value
-                                );
-                              }
-                            }}
-                            style={styles.select}
-                          >
-                            <option value="">-</option>
-                            <option value="Activ">Activ</option>
-                            <option value="Inactiv">Inactiv</option>
-
-                            {!esteStup && (
-                              <>
-                                <option value="Vândut">Vândut</option>
-                                <option value="Unit">Unit</option>
-                                <option value="Pierdut">Pierdut</option>
-                              </>
+                            {esteStup ? (
+                              <Link
+                                href={`/stupi/${familie.numar}`}
+                                style={
+                                  styles.numberLink
+                                }
+                              >
+                                #{familie.numar}
+                              </Link>
+                            ) : (
+                              <strong>
+                                #{familie.numar}
+                              </strong>
                             )}
-                          </select>
-                        </td>
 
-                        <td>
-                          {familie.origine || "-"}
-                        </td>
+                          </td>
 
-                        <td style={styles.observatii}>
-                          {familie.observatii || "-"}
-                        </td>
+                          <td>
+                            {familie.matca || "-"}
+                          </td>
 
-                        <td>
-                          <div style={styles.actions}>
+                          <td>
+                            {familie.are_matca ===
+                              true ||
+                            familie.matca ===
+                              "Da"
+                              ? "✅ Da"
+                              : "❌ Nu"}
+                          </td>
 
-                            <button
-                              onClick={() =>
-                                openVerification(familie)
+                          <td>
+                            {familie.an_matca ||
+                              "-"}
+                          </td>
+
+                          <td>
+                            {familie.rame ?? 0}
+                          </td>
+
+                          <td>
+                            {familie.rame_puiet ??
+                              0}
+                          </td>
+
+                          <td>
+                            {Number(
+                              familie.miere_kg || 0
+                            ).toFixed(1)}
+                          </td>
+
+                          <td>
+                            {familie.rame_polen ??
+                              0}
+                          </td>
+
+                          <td>
+
+                            <select
+                              value={
+                                familie.status ||
+                                ""
                               }
-                              style={styles.verifyButton}
-                            >
-                              📝 Verifică
-                            </button>
+                              onChange={(e) => {
 
-                            <button
-                              onClick={() =>
-                                esteStup
-                                  ? removeStup(familie.original)
-                                  : removeRoi(familie.original)
+                                if (esteStup) {
+                                  updateStupStatus(
+                                    familie.id,
+                                    e.target.value
+                                  );
+                                } else {
+                                  updateRoiStatus(
+                                    familie.id,
+                                    e.target.value
+                                  );
+                                }
+
+                              }}
+                              style={
+                                styles.select
                               }
-                              style={styles.removeButton}
                             >
-                              Scoate
-                            </button>
 
-                          </div>
-                        </td>
+                              <option value="">
+                                -
+                              </option>
 
-                      </tr>
-                    );
-                  })}
+                              <option value="Activ">
+                                Activ
+                              </option>
+
+                              <option value="Inactiv">
+                                Inactiv
+                              </option>
+
+                              {!esteStup && (
+                                <>
+                                  <option value="Vândut">
+                                    Vândut
+                                  </option>
+
+                                  <option value="Unit">
+                                    Unit
+                                  </option>
+
+                                  <option value="Pierdut">
+                                    Pierdut
+                                  </option>
+                                </>
+                              )}
+
+                            </select>
+
+                          </td>
+
+                          <td>
+                            {familie.origine ||
+                              "-"}
+                          </td>
+
+                          <td
+                            style={
+                              styles.observatii
+                            }
+                          >
+                            {familie.observatii ||
+                              "-"}
+                          </td>
+
+                          <td>
+
+                            <div
+                              style={
+                                styles.actions
+                              }
+                            >
+
+                              <button
+                                onClick={() =>
+                                  openVerification(
+                                    familie
+                                  )
+                                }
+                                style={
+                                  styles.verifyButton
+                                }
+                              >
+                                📝 Verifică
+                              </button>
+
+                              <button
+                                onClick={() =>
+                                  esteStup
+                                    ? removeStup(
+                                        familie.original
+                                      )
+                                    : removeRoi(
+                                        familie.original
+                                      )
+                                }
+                                style={
+                                  styles.removeButton
+                                }
+                              >
+                                Scoate
+                              </button>
+
+                            </div>
+
+                          </td>
+
+                        </tr>
+                      );
+                    }
+                  )}
+
                 </tbody>
+
               </table>
+
             </div>
           )}
+
         </div>
 
+        {/* MODAL ADAUGĂ STUP */}
+
         {showAddStup && (
-          <div style={styles.modalOverlay}>
+          <div
+            style={styles.modalOverlay}
+          >
+
             <div style={styles.modal}>
 
-              <div style={styles.modalHeader}>
-                <h2>Adaugă stup existent</h2>
+              <div
+                style={
+                  styles.modalHeader
+                }
+              >
+
+                <h2>
+                  Adaugă stup existent
+                </h2>
 
                 <button
-                  onClick={() => setShowAddStup(false)}
+                  onClick={() =>
+                    setShowAddStup(false)
+                  }
                   style={styles.close}
                 >
                   ✕
                 </button>
+
               </div>
 
               <p>
-                Alege un stup existent din baza principală.
-                Nu se va crea un stup nou.
+                Alege un stup existent din
+                baza principală.
               </p>
 
               <div style={styles.list}>
-                {stupiDisponibili.length === 0 ? (
+
+                {stupiDisponibili.length ===
+                0 ? (
                   <div style={styles.empty}>
                     Nu există stupi disponibili.
                   </div>
                 ) : (
-                  stupiDisponibili.map((stup) => (
-                    <button
-                      key={stup.id}
-                      onClick={() => addExistingStup(stup)}
-                      style={styles.listItem}
-                    >
-                      <strong>
-                        Stup #{stup.numar_stup}
-                      </strong>
+                  stupiDisponibili.map(
+                    (stup) => (
+                      <button
+                        key={stup.id}
+                        onClick={() =>
+                          addExistingStup(
+                            stup
+                          )
+                        }
+                        style={
+                          styles.listItem
+                        }
+                      >
 
-                      <span>
-                        {stup.stupina_id
-                          ? "Mută din altă stupină"
-                          : "Fără locație"}
-                      </span>
-                    </button>
-                  ))
+                        <strong>
+                          Stup #
+                          {stup.numar_stup}
+                        </strong>
+
+                        <span>
+                          {stup.stupina_id
+                            ? "Mută din altă stupină"
+                            : "Fără locație"}
+                        </span>
+
+                      </button>
+                    )
+                  )
                 )}
+
               </div>
 
             </div>
+
           </div>
         )}
 
+        {/* MODAL ADAUGĂ ROI */}
+
         {showAddRoi && (
-          <div style={styles.modalOverlay}>
+          <div
+            style={styles.modalOverlay}
+          >
+
             <div style={styles.modal}>
 
-              <div style={styles.modalHeader}>
-                <h2>Adaugă roi existent</h2>
+              <div
+                style={
+                  styles.modalHeader
+                }
+              >
+
+                <h2>
+                  Adaugă roi existent
+                </h2>
 
                 <button
-                  onClick={() => setShowAddRoi(false)}
+                  onClick={() =>
+                    setShowAddRoi(false)
+                  }
                   style={styles.close}
                 >
                   ✕
                 </button>
+
               </div>
 
               <p>
@@ -791,208 +1107,316 @@ export default function StupinaPage() {
               </p>
 
               <div style={styles.list}>
-                {roiuriDisponibile.length === 0 ? (
+
+                {roiuriDisponibile.length ===
+                0 ? (
                   <div style={styles.empty}>
-                    Nu există roiuri/nuclee disponibile.
+                    Nu există roiuri/nuclee
+                    disponibile.
                   </div>
                 ) : (
-                  roiuriDisponibile.map((roi) => (
-                    <button
-                      key={roi.id}
-                      onClick={() => addExistingRoi(roi)}
-                      style={styles.listItem}
-                    >
-                      <strong>
-                        {roi.tip || "Roi"} #{roi.numar}
-                      </strong>
+                  roiuriDisponibile.map(
+                    (roi) => (
+                      <button
+                        key={roi.id}
+                        onClick={() =>
+                          addExistingRoi(
+                            roi
+                          )
+                        }
+                        style={
+                          styles.listItem
+                        }
+                      >
 
-                      <span>
-                        {roi.stupina_id
-                          ? "Mută din altă stupină"
-                          : "Fără locație"}
-                      </span>
-                    </button>
-                  ))
+                        <strong>
+                          {roi.tip ||
+                            "Roi"}{" "}
+                          #{roi.numar}
+                        </strong>
+
+                        <span>
+                          {roi.stupina_id
+                            ? "Mută din altă stupină"
+                            : "Fără locație"}
+                        </span>
+
+                      </button>
+                    )
+                  )
                 )}
+
               </div>
 
             </div>
+
           </div>
         )}
 
-        {showVerification && selectedFamilie && (
-          <div style={styles.modalOverlay}>
-            <div style={styles.modal}>
+        {/* MODAL VERIFICARE */}
 
-              <div style={styles.modalHeader}>
-                <h2>
-                  📝 Verificare{" "}
-                  {selectedFamilie.tipFamilie} #
-                  {selectedFamilie.numar}
-                </h2>
+        {showVerification &&
+          selectedFamilie && (
+            <div
+              style={
+                styles.modalOverlay
+              }
+            >
+
+              <div style={styles.modal}>
+
+                <div
+                  style={
+                    styles.modalHeader
+                  }
+                >
+
+                  <h2>
+                    📝 Verificare{" "}
+                    {
+                      selectedFamilie.tipFamilie
+                    }{" "}
+                    #
+                    {
+                      selectedFamilie.numar
+                    }
+                  </h2>
+
+                  <button
+                    onClick={() =>
+                      setShowVerification(
+                        false
+                      )
+                    }
+                    style={styles.close}
+                  >
+                    ✕
+                  </button>
+
+                </div>
+
+                <div
+                  style={
+                    styles.formGrid
+                  }
+                >
+
+                  <label>
+                    Data
+                    <input
+                      type="date"
+                      value={
+                        verification.data_verificare
+                      }
+                      onChange={(e) =>
+                        setVerification({
+                          ...verification,
+                          data_verificare:
+                            e.target.value,
+                        })
+                      }
+                      style={
+                        styles.input
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Rasa matcă
+                    <input
+                      value={
+                        verification.matca
+                      }
+                      onChange={(e) =>
+                        setVerification({
+                          ...verification,
+                          matca:
+                            e.target.value,
+                        })
+                      }
+                      style={
+                        styles.input
+                      }
+                      placeholder="Ex: Carnica"
+                    />
+                  </label>
+
+                  <label>
+                    Are matcă?
+                    <select
+                      value={
+                        verification.are_matca
+                          ? "Da"
+                          : "Nu"
+                      }
+                      onChange={(e) =>
+                        setVerification({
+                          ...verification,
+                          are_matca:
+                            e.target.value ===
+                            "Da",
+                        })
+                      }
+                      style={
+                        styles.input
+                      }
+                    >
+                      <option value="Da">
+                        Da
+                      </option>
+
+                      <option value="Nu">
+                        Nu
+                      </option>
+                    </select>
+                  </label>
+
+                  <label>
+                    An matcă
+                    <input
+                      type="number"
+                      value={
+                        verification.an_matca
+                      }
+                      onChange={(e) =>
+                        setVerification({
+                          ...verification,
+                          an_matca:
+                            e.target.value,
+                        })
+                      }
+                      style={
+                        styles.input
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Rame
+                    <input
+                      type="number"
+                      value={
+                        verification.rame
+                      }
+                      onChange={(e) =>
+                        setVerification({
+                          ...verification,
+                          rame:
+                            e.target.value,
+                        })
+                      }
+                      style={
+                        styles.input
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Rame puiet
+                    <input
+                      type="number"
+                      value={
+                        verification.rame_puiet
+                      }
+                      onChange={(e) =>
+                        setVerification({
+                          ...verification,
+                          rame_puiet:
+                            e.target.value,
+                        })
+                      }
+                      style={
+                        styles.input
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Rame miere
+                    <input
+                      type="number"
+                      value={
+                        verification.rame_miere
+                      }
+                      onChange={(e) =>
+                        setVerification({
+                          ...verification,
+                          rame_miere:
+                            e.target.value,
+                        })
+                      }
+                      style={
+                        styles.input
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Rame polen
+                    <input
+                      type="number"
+                      value={
+                        verification.rame_polen
+                      }
+                      onChange={(e) =>
+                        setVerification({
+                          ...verification,
+                          rame_polen:
+                            e.target.value,
+                        })
+                      }
+                      style={
+                        styles.input
+                      }
+                    />
+                  </label>
+
+                  <label
+                    style={{
+                      gridColumn:
+                        "1 / -1",
+                    }}
+                  >
+                    Observații
+
+                    <textarea
+                      value={
+                        verification.observatii
+                      }
+                      onChange={(e) =>
+                        setVerification({
+                          ...verification,
+                          observatii:
+                            e.target.value,
+                        })
+                      }
+                      style={
+                        styles.textarea
+                      }
+                      rows={4}
+                    />
+                  </label>
+
+                </div>
 
                 <button
-                  onClick={() => setShowVerification(false)}
-                  style={styles.close}
+                  onClick={
+                    saveVerification
+                  }
+                  disabled={saving}
+                  style={
+                    styles.saveButton
+                  }
                 >
-                  ✕
+                  {saving
+                    ? "Se salvează..."
+                    : "💾 Salvează verificarea"}
                 </button>
-              </div>
-
-              <div style={styles.formGrid}>
-
-                <label>
-                  Data
-                  <input
-                    type="date"
-                    value={verification.data_verificare}
-                    onChange={(e) =>
-                      setVerification({
-                        ...verification,
-                        data_verificare: e.target.value,
-                      })
-                    }
-                    style={styles.input}
-                  />
-                </label>
-
-                <label>
-                  Rasa matcă
-                  <input
-                    value={verification.matca}
-                    onChange={(e) =>
-                      setVerification({
-                        ...verification,
-                        matca: e.target.value,
-                      })
-                    }
-                    style={styles.input}
-                    placeholder="Ex: Carnica"
-                  />
-                </label>
-
-                <label>
-                  Are matcă?
-                  <select
-                    value={verification.are_matca ? "Da" : "Nu"}
-                    onChange={(e) =>
-                      setVerification({
-                        ...verification,
-                        are_matca: e.target.value === "Da",
-                      })
-                    }
-                    style={styles.input}
-                  >
-                    <option value="Da">Da</option>
-                    <option value="Nu">Nu</option>
-                  </select>
-                </label>
-
-                <label>
-                  An matcă
-                  <input
-                    type="number"
-                    value={verification.an_matca}
-                    onChange={(e) =>
-                      setVerification({
-                        ...verification,
-                        an_matca: e.target.value,
-                      })
-                    }
-                    style={styles.input}
-                  />
-                </label>
-
-                <label>
-                  Rame
-                  <input
-                    type="number"
-                    value={verification.rame}
-                    onChange={(e) =>
-                      setVerification({
-                        ...verification,
-                        rame: e.target.value,
-                      })
-                    }
-                    style={styles.input}
-                  />
-                </label>
-
-                <label>
-                  Rame puiet
-                  <input
-                    type="number"
-                    value={verification.rame_puiet}
-                    onChange={(e) =>
-                      setVerification({
-                        ...verification,
-                        rame_puiet: e.target.value,
-                      })
-                    }
-                    style={styles.input}
-                  />
-                </label>
-
-                <label>
-                  Rame miere
-                  <input
-                    type="number"
-                    value={verification.rame_miere}
-                    onChange={(e) =>
-                      setVerification({
-                        ...verification,
-                        rame_miere: e.target.value,
-                      })
-                    }
-                    style={styles.input}
-                  />
-                </label>
-
-                <label>
-                  Rame polen
-                  <input
-                    type="number"
-                    value={verification.rame_polen}
-                    onChange={(e) =>
-                      setVerification({
-                        ...verification,
-                        rame_polen: e.target.value,
-                      })
-                    }
-                    style={styles.input}
-                  />
-                </label>
-
-                <label style={{ gridColumn: "1 / -1" }}>
-                  Observații
-                  <textarea
-                    value={verification.observatii}
-                    onChange={(e) =>
-                      setVerification({
-                        ...verification,
-                        observatii: e.target.value,
-                      })
-                    }
-                    style={styles.textarea}
-                    rows={4}
-                  />
-                </label>
 
               </div>
-
-              <button
-                onClick={saveVerification}
-                disabled={saving}
-                style={styles.saveButton}
-              >
-                {saving
-                  ? "Se salvează..."
-                  : "💾 Salvează verificarea"}
-              </button>
 
             </div>
-          </div>
-        )}
+          )}
 
       </div>
     </main>
@@ -1079,7 +1503,8 @@ const styles = {
 
   stats: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(130px, 1fr))",
     gap: "12px",
     marginBottom: "20px",
   },
@@ -1088,7 +1513,8 @@ const styles = {
     background: "white",
     padding: "18px",
     borderRadius: "10px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+    boxShadow:
+      "0 2px 8px rgba(0,0,0,0.06)",
     display: "flex",
     flexDirection: "column",
     gap: "6px",
@@ -1127,7 +1553,8 @@ const styles = {
   card: {
     background: "white",
     borderRadius: "12px",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+    boxShadow:
+      "0 2px 10px rgba(0,0,0,0.06)",
     overflow: "hidden",
   },
 
@@ -1256,7 +1683,8 @@ const styles = {
 
   formGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(2, 1fr)",
+    gridTemplateColumns:
+      "repeat(2, 1fr)",
     gap: "15px",
   },
 
