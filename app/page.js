@@ -1,3 +1,4 @@
+```jsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -22,6 +23,7 @@ export default function Home() {
   const [savingVerification, setSavingVerification] = useState(false);
   const [savingStup, setSavingStup] = useState(false);
   const [deletingBatch, setDeletingBatch] = useState(null);
+  const [deletingStup, setDeletingStup] = useState(null);
 
   const [newStupNumber, setNewStupNumber] = useState("");
 
@@ -186,7 +188,6 @@ export default function Home() {
 
     const updateData = {
       matca: verification.matca || null,
-
       are_matca: areMatca,
 
       an_matca:
@@ -228,9 +229,7 @@ export default function Home() {
         : selectedFamilie.id,
 
       data_verificare: verification.data,
-
       matca: verification.matca || null,
-
       are_matca: areMatca,
 
       an_matca:
@@ -340,8 +339,7 @@ export default function Home() {
     setShowVerification(false);
 
     const numeFamilie = esteStup
-      ? "Stupul " +
-        selectedFamilie.numar_stup
+      ? "Stupul " + selectedFamilie.numar_stup
       : (selectedFamilie.tip ||
           selectedFamilie.tipFamilie) +
         " " +
@@ -438,6 +436,106 @@ export default function Home() {
     }
 
     setSavingStup(false);
+  }
+
+  async function deleteStup(stup) {
+    if (!stup || !stup.id) return;
+
+    const confirmare = window.confirm(
+      "⚠️ ATENȚIE!\n\n" +
+        "Sigur vrei să ștergi STUPUL " +
+        stup.numar_stup +
+        "?\n\n" +
+        "Vor fi șterse și verificările și tratamentele asociate acestui stup.\n\n" +
+        "Această acțiune NU poate fi anulată."
+    );
+
+    if (!confirmare) return;
+
+    setDeletingStup(stup.id);
+
+    // Ștergem tratamentele asociate stupului
+    const { error: tratamenteError } = await supabase
+      .from("tratamente")
+      .delete()
+      .eq("stup_id", stup.id);
+
+    if (tratamenteError) {
+      console.error(tratamenteError);
+
+      alert(
+        "Stupul nu a fost șters deoarece nu au putut fi șterse tratamentele asociate:\n\n" +
+          tratamenteError.message
+      );
+
+      setDeletingStup(null);
+      return;
+    }
+
+    // Ștergem verificările asociate stupului
+    const { error: verificariError } = await supabase
+      .from("verificari")
+      .delete()
+      .eq("stup_id", stup.id);
+
+    if (verificariError) {
+      console.error(verificariError);
+
+      alert(
+        "Stupul nu a fost șters deoarece nu au putut fi șterse verificările asociate:\n\n" +
+          verificariError.message
+      );
+
+      setDeletingStup(null);
+      return;
+    }
+
+    // Ștergem stupul
+    const { error: stupError } = await supabase
+      .from("stupi")
+      .delete()
+      .eq("id", stup.id);
+
+    if (stupError) {
+      console.error(stupError);
+
+      alert(
+        "Eroare la ștergerea stupului:\n\n" +
+          stupError.message
+      );
+
+      setDeletingStup(null);
+      return;
+    }
+
+    // Actualizăm interfața
+    setStupi((prev) =>
+      prev.filter(
+        (item) => item.id !== stup.id
+      )
+    );
+
+    setTratamente((prev) =>
+      prev.filter(
+        (tratament) =>
+          tratament.stup_id !== stup.id
+      )
+    );
+
+    setVerificari((prev) =>
+      prev.filter(
+        (verificare) =>
+          verificare.stup_id !== stup.id
+      )
+    );
+
+    alert(
+      "Stupul " +
+        stup.numar_stup +
+        " a fost șters cu succes."
+    );
+
+    setDeletingStup(null);
   }
 
   async function updateStupStatus(
@@ -1878,8 +1976,7 @@ export default function Home() {
                           styles.td
                         }
                       >
-                        {familie.rame ??
-                          "—"}
+                        {familie.rame ?? "—"}
                       </td>
 
                       <td
@@ -1887,8 +1984,7 @@ export default function Home() {
                           styles.td
                         }
                       >
-                        {familie.rame_puiet ??
-                          "—"}
+                        {familie.rame_puiet ?? "—"}
                       </td>
 
                       <td
@@ -1907,8 +2003,7 @@ export default function Home() {
                           styles.td
                         }
                       >
-                        {familie.rame_polen ??
-                          "—"}
+                        {familie.rame_polen ?? "—"}
                       </td>
 
                       <td
@@ -2001,22 +2096,51 @@ export default function Home() {
                       </td>
 
                       <td
-                        style={
-                          styles.td
-                        }
+                        style={{
+                          ...styles.td,
+                          ...styles.actionCell,
+                        }}
                       >
-                        <button
+                        <div
                           style={
-                            styles.verifyButton
-                          }
-                          onClick={() =>
-                            openVerification(
-                              familie
-                            )
+                            styles.actionButtons
                           }
                         >
-                          📝 Verifică
-                        </button>
+                          <button
+                            style={
+                              styles.verifyButton
+                            }
+                            onClick={() =>
+                              openVerification(
+                                familie
+                              )
+                            }
+                          >
+                            📝 Verifică
+                          </button>
+
+                          {esteStup && (
+                            <button
+                              style={
+                                styles.deleteStupButton
+                              }
+                              onClick={() =>
+                                deleteStup(
+                                  familie.original
+                                )
+                              }
+                              disabled={
+                                deletingStup ===
+                                familie.id
+                              }
+                            >
+                              {deletingStup ===
+                              familie.id
+                                ? "Se șterge..."
+                                : "🗑️ Șterge"}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -2884,7 +3008,7 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "1550px",
+    minWidth: "1650px",
   },
 
   th: {
@@ -2903,6 +3027,16 @@ const styles = {
     padding: "12px 14px",
     borderBottom: "1px solid #eee",
     fontWeight: "bold",
+  },
+
+  actionCell: {
+    minWidth: "180px",
+  },
+
+  actionButtons: {
+    display: "flex",
+    gap: "7px",
+    flexDirection: "column",
   },
 
   stupLink: {
@@ -3003,6 +3137,16 @@ const styles = {
     borderRadius: "8px",
     padding: "9px 12px",
     background: "#1976d2",
+    color: "#fff",
+    cursor: "pointer",
+    fontWeight: "bold",
+  },
+
+  deleteStupButton: {
+    border: "none",
+    borderRadius: "8px",
+    padding: "9px 12px",
+    background: "#d32f2f",
     color: "#fff",
     cursor: "pointer",
     fontWeight: "bold",
@@ -3207,3 +3351,4 @@ const styles = {
     transition: "background 0.2s",
   },
 };
+```
