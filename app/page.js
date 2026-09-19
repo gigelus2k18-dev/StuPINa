@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -259,6 +260,71 @@ export default function Home() {
     setSavingStup(false);
   }
 
+  async function updateStupStatus(stupId, status) {
+    const { error } = await supabase
+      .from("stupi")
+      .update({ status })
+      .eq("id", stupId);
+
+    if (error) {
+      console.error(error);
+      alert(
+        "Eroare la schimbarea statusului: " +
+          error.message
+      );
+      return;
+    }
+
+    setStupi((prev) =>
+      prev.map((stup) =>
+        stup.id === stupId
+          ? { ...stup, status }
+          : stup
+      )
+    );
+  }
+
+  async function updateAllStatuses(status) {
+    const confirmare = window.confirm(
+      "Sigur vrei să setezi toți cei " +
+        stupi.length +
+        " stupi ca „" +
+        status +
+        "”?"
+    );
+
+    if (!confirmare) return;
+
+    const { error } = await supabase
+      .from("stupi")
+      .update({ status })
+      .not("id", "is", null);
+
+    if (error) {
+      console.error(error);
+      alert(
+        "Eroare la schimbarea statusurilor: " +
+          error.message
+      );
+      return;
+    }
+
+    setStupi((prev) =>
+      prev.map((stup) => ({
+        ...stup,
+        status,
+      }))
+    );
+
+    alert(
+      "Toți cei " +
+        stupi.length +
+        " stupi au fost setați ca „" +
+        status +
+        "”."
+    );
+  }
+
   async function applyTreatmentToAll() {
     if (!treatment.tip || !treatment.data) {
       alert("Completează tratamentul și data.");
@@ -433,6 +499,14 @@ export default function Home() {
       Number(stup.rame_puiet || 0) === 0
   );
 
+  const stupiActivi = stupi.filter(
+    (stup) => stup.status === "Activ"
+  ).length;
+
+  const stupiInactivi = stupi.filter(
+    (stup) => stup.status === "Inactiv"
+  ).length;
+
   const searchTerm = search.trim().toLowerCase();
 
   const filteredStupi = stupi.filter((stup) =>
@@ -500,6 +574,18 @@ export default function Home() {
           icon="🐝"
           title="Total stupi"
           value={stupi.length}
+        />
+
+        <StatCard
+          icon="🟢"
+          title="Stupi activi"
+          value={stupiActivi}
+        />
+
+        <StatCard
+          icon="🔴"
+          title="Stupi inactivi"
+          value={stupiInactivi}
         />
 
         <StatCard
@@ -723,6 +809,55 @@ export default function Home() {
         </Link>
       </section>
 
+      <section style={styles.statusSection}>
+        <div style={styles.statusHeader}>
+          <div>
+            <h2 style={styles.statusTitle}>
+              🔄 Status stupi
+            </h2>
+
+            <p style={styles.statusSubtitle}>
+              Poți schimba statusul fiecărui stup separat
+              sau al tuturor deodată.
+            </p>
+          </div>
+
+          <div style={styles.statusActions}>
+            <button
+              style={styles.activateAllButton}
+              onClick={() =>
+                updateAllStatuses("Activ")
+              }
+            >
+              🟢 Toți activi
+            </button>
+
+            <button
+              style={styles.deactivateAllButton}
+              onClick={() =>
+                updateAllStatuses("Inactiv")
+              }
+            >
+              🔴 Toți inactivi
+            </button>
+          </div>
+        </div>
+
+        <div style={styles.statusSummary}>
+          <span style={styles.activeSummary}>
+            🟢 {stupiActivi} activi
+          </span>
+
+          <span style={styles.inactiveSummary}>
+            🔴 {stupiInactivi} inactivi
+          </span>
+
+          <span style={styles.noStatusSummary}>
+            ⚪ {stupi.length - stupiActivi - stupiInactivi} fără status
+          </span>
+        </div>
+      </section>
+
       <section style={styles.batchSection}>
         <div style={styles.batchHeader}>
           <h2 style={styles.batchTitle}>
@@ -902,7 +1037,36 @@ export default function Home() {
                   </td>
 
                   <td style={styles.td}>
-                    {stup.status || "—"}
+                    <select
+                      value={stup.status || ""}
+                      onChange={(e) =>
+                        updateStupStatus(
+                          stup.id,
+                          e.target.value
+                        )
+                      }
+                      style={{
+                        ...styles.statusSelect,
+                        ...(stup.status === "Activ"
+                          ? styles.statusSelectActive
+                          : {}),
+                        ...(stup.status === "Inactiv"
+                          ? styles.statusSelectInactive
+                          : {}),
+                      }}
+                    >
+                      <option value="">
+                        Selectează
+                      </option>
+
+                      <option value="Activ">
+                        Activ
+                      </option>
+
+                      <option value="Inactiv">
+                        Inactiv
+                      </option>
+                    </select>
                   </td>
 
                   <td style={styles.td}>
@@ -1527,6 +1691,118 @@ const styles = {
     fontWeight: "bold",
   },
 
+  statusSection: {
+    background: "#fff",
+    borderRadius: "14px",
+    padding: "20px",
+    marginBottom: "25px",
+    boxShadow:
+      "0 2px 10px rgba(0,0,0,0.06)",
+  },
+
+  statusHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "20px",
+    flexWrap: "wrap",
+  },
+
+  statusTitle: {
+    margin: 0,
+    fontSize: "21px",
+  },
+
+  statusSubtitle: {
+    marginTop: "6px",
+    marginBottom: 0,
+    color: "#777",
+    fontSize: "14px",
+  },
+
+  statusActions: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+
+  activateAllButton: {
+    border: "none",
+    borderRadius: "8px",
+    padding: "11px 15px",
+    cursor: "pointer",
+    background: "#dcfce7",
+    color: "#166534",
+    fontWeight: "bold",
+  },
+
+  deactivateAllButton: {
+    border: "none",
+    borderRadius: "8px",
+    padding: "11px 15px",
+    cursor: "pointer",
+    background: "#fee2e2",
+    color: "#991b1b",
+    fontWeight: "bold",
+  },
+
+  statusSummary: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap",
+    marginTop: "15px",
+  },
+
+  activeSummary: {
+    padding: "7px 10px",
+    background: "#dcfce7",
+    color: "#166534",
+    borderRadius: "8px",
+    fontSize: "13px",
+    fontWeight: "bold",
+  },
+
+  inactiveSummary: {
+    padding: "7px 10px",
+    background: "#fee2e2",
+    color: "#991b1b",
+    borderRadius: "8px",
+    fontSize: "13px",
+    fontWeight: "bold",
+  },
+
+  noStatusSummary: {
+    padding: "7px 10px",
+    background: "#f3f4f6",
+    color: "#6b7280",
+    borderRadius: "8px",
+    fontSize: "13px",
+    fontWeight: "bold",
+  },
+
+  statusSelect: {
+    minWidth: "110px",
+    padding: "8px 10px",
+    borderRadius: "8px",
+    border: "1px solid #d1d5db",
+    background: "#fff",
+    cursor: "pointer",
+    fontWeight: "bold",
+    fontSize: "13px",
+  },
+
+  statusSelectActive: {
+    background: "#dcfce7",
+    color: "#166534",
+    border: "1px solid #86efac",
+  },
+
+  statusSelectInactive: {
+    background: "#fee2e2",
+    color: "#991b1b",
+    border: "1px solid #fca5a5",
+  },
+
   batchSection: {
     background: "#fff",
     borderRadius: "14px",
@@ -1777,3 +2053,4 @@ const styles = {
     transition: "background 0.2s",
   },
 };
+
