@@ -9,6 +9,7 @@ export default function Home() {
   const [roiuri, setRoiuri] = useState([]);
   const [tratamente, setTratamente] = useState([]);
   const [verificari, setVerificari] = useState([]);
+  const [stupine, setStupine] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
@@ -16,13 +17,17 @@ export default function Home() {
   const [showVerification, setShowVerification] = useState(false);
   const [showAddStup, setShowAddStup] = useState(false);
   const [showAddMultiple, setShowAddMultiple] = useState(false);
+  const [showAddToStupina, setShowAddToStupina] = useState(false);
 
   const [selectedFamilie, setSelectedFamilie] = useState(null);
+  const [selectedStupina, setSelectedStupina] = useState("");
 
   const [savingTreatment, setSavingTreatment] = useState(false);
   const [savingVerification, setSavingVerification] = useState(false);
   const [savingStup, setSavingStup] = useState(false);
   const [savingMultiple, setSavingMultiple] = useState(false);
+  const [savingStupina, setSavingStupina] = useState(false);
+
   const [deletingBatch, setDeletingBatch] = useState(null);
   const [deletingStup, setDeletingStup] = useState(null);
 
@@ -68,6 +73,21 @@ export default function Home() {
 
     setStupi(stupiData || []);
 
+    const { data: stupineData, error: stupineError } = await supabase
+      .from("stupine")
+      .select("id, nume, locatie, observatii")
+      .order("nume", { ascending: true });
+
+    if (stupineError) {
+      console.error(stupineError);
+      alert(
+        "Nu s-au putut încărca stupinele: " +
+          stupineError.message
+      );
+    } else {
+      setStupine(stupineData || []);
+    }
+
     const { data: roiuriData, error: roiuriError } = await supabase
       .from("roiuri")
       .select("*")
@@ -76,7 +96,7 @@ export default function Home() {
     if (roiuriError) {
       console.error(roiuriError);
       alert(
-        "Nu s-au putut încărca roiurile/nucleele: " +
+        "Nu s-au putut încărca roiurile/nuclee: " +
           roiuriError.message
       );
     } else {
@@ -314,6 +334,123 @@ export default function Home() {
     );
 
     setSavingVerification(false);
+  }
+
+  async function addStupToStupina() {
+    if (!selectedFamilie || !selectedStupina) {
+      alert("Alege stupina.");
+      return;
+    }
+
+    const stupinaAleasa = stupine.find(
+      (stupina) =>
+        String(stupina.id) ===
+        String(selectedStupina)
+    );
+
+    if (!stupinaAleasa) {
+      alert("Stupina selectată nu a fost găsită.");
+      return;
+    }
+
+    setSavingStupina(true);
+
+    const { error } = await supabase
+      .from("stupi")
+      .update({
+        stupina_id: stupinaAleasa.id,
+      })
+      .eq("id", selectedFamilie.id);
+
+    if (error) {
+      console.error(error);
+
+      alert(
+        "Eroare la asocierea stupului cu stupina:\n\n" +
+          error.message
+      );
+
+      setSavingStupina(false);
+      return;
+    }
+
+    setStupi((prev) =>
+      prev.map((stup) =>
+        stup.id === selectedFamilie.id
+          ? {
+              ...stup,
+              stupina_id: stupinaAleasa.id,
+            }
+          : stup
+      )
+    );
+
+    setShowAddToStupina(false);
+    setSelectedStupina("");
+    setSavingStupina(false);
+
+    alert(
+      "Stupul " +
+        selectedFamilie.numar_stup +
+        " a fost asociat cu stupina „" +
+        stupinaAleasa.nume +
+        "”."
+    );
+  }
+
+  async function removeStupFromStupina(stup) {
+    if (!stup) return;
+
+    const stupinaActuala = stupine.find(
+      (stupina) =>
+        String(stupina.id) ===
+        String(stup.stupina_id)
+    );
+
+    const confirmare = window.confirm(
+      "Vrei să scoți stupul " +
+        stup.numar_stup +
+        " din stupina „" +
+        (stupinaActuala?.nume || "actuală") +
+        "”?\n\nStupul nu va fi șters. Va rămâne în tabelul principal fără stupină."
+    );
+
+    if (!confirmare) return;
+
+    const { error } = await supabase
+      .from("stupi")
+      .update({
+        stupina_id: null,
+      })
+      .eq("id", stup.id);
+
+    if (error) {
+      console.error(error);
+
+      alert(
+        "Eroare la scoaterea stupului din stupină:\n\n" +
+          error.message
+      );
+
+      return;
+    }
+
+    setStupi((prev) =>
+      prev.map((item) =>
+        item.id === stup.id
+          ? {
+              ...item,
+              stupina_id: null,
+            }
+          : item
+      )
+    );
+
+    alert(
+      "Stupul " +
+        stup.numar_stup +
+        " a fost scos din stupină."
+    );
   }
 
   async function addStup() {
@@ -1064,6 +1201,7 @@ export default function Home() {
       miere_kg: stup.miere_kg,
       status: stup.status,
       observatii: stup.observatii,
+      stupina_id: stup.stupina_id,
       original: stup,
     })),
 
@@ -1333,7 +1471,6 @@ export default function Home() {
         )}
       </section>
 
-      {/* BUTOANELE PRINCIPALE */}
       <section style={styles.actionsSection}>
         <button
           style={styles.addStupButton}
@@ -1514,6 +1651,7 @@ export default function Home() {
               <tr>
                 <th style={styles.th}>Tip</th>
                 <th style={styles.th}>Nr.</th>
+                <th style={styles.th}>Stupină</th>
                 <th style={styles.th}>Rasa matcă</th>
                 <th style={styles.th}>Are matcă?</th>
                 <th style={styles.th}>An matcă</th>
@@ -1532,6 +1670,15 @@ export default function Home() {
               {familiiTabel.map((familie) => {
                 const esteStup =
                   familie.tipFamilie === "Stup";
+
+                const stupinaFamilie =
+                  esteStup
+                    ? stupine.find(
+                        (stupina) =>
+                          String(stupina.id) ===
+                          String(familie.stupina_id)
+                      )
+                    : null;
 
                 return (
                   <tr
@@ -1574,6 +1721,28 @@ export default function Home() {
                         >
                           {familie.numar}
                         </Link>
+                      )}
+                    </td>
+
+                    <td style={styles.td}>
+                      {stupinaFamilie ? (
+                        <div>
+                          <strong>
+                            📍 {stupinaFamilie.nume}
+                          </strong>
+
+                          {stupinaFamilie.locatie && (
+                            <div style={styles.stupinaLocation}>
+                              {stupinaFamilie.locatie}
+                            </div>
+                          )}
+                        </div>
+                      ) : esteStup ? (
+                        <span style={styles.noStupina}>
+                          Fără stupină
+                        </span>
+                      ) : (
+                        "—"
                       )}
                     </td>
 
@@ -1702,21 +1871,62 @@ export default function Home() {
                         </button>
 
                         {esteStup && (
-                          <button
-                            style={styles.deleteStupButton}
-                            onClick={() =>
-                              deleteStup(
-                                familie.original
-                              )
-                            }
-                            disabled={
-                              deletingStup === familie.id
-                            }
-                          >
-                            {deletingStup === familie.id
-                              ? "Se șterge..."
-                              : "🗑️ Șterge"}
-                          </button>
+                          <>
+                            <button
+                              style={styles.stupinaActionButton}
+                              onClick={() => {
+                                setSelectedFamilie(
+                                  familie.original
+                                );
+
+                                setSelectedStupina(
+                                  familie.original.stupina_id
+                                    ? String(
+                                        familie.original
+                                          .stupina_id
+                                      )
+                                    : ""
+                                );
+
+                                setShowAddToStupina(true);
+                              }}
+                            >
+                              {familie.original.stupina_id
+                                ? "🔄 Schimbă stupina"
+                                : "📍 Adaugă la stupină"}
+                            </button>
+
+                            {familie.original.stupina_id && (
+                              <button
+                                style={styles.removeStupinaButton}
+                                onClick={() =>
+                                  removeStupFromStupina(
+                                    familie.original
+                                  )
+                                }
+                              >
+                                ❌ Scoate din stupină
+                              </button>
+                            )}
+
+                            <button
+                              style={styles.deleteStupButton}
+                              onClick={() =>
+                                deleteStup(
+                                  familie.original
+                                )
+                              }
+                              disabled={
+                                deletingStup ===
+                                familie.id
+                              }
+                            >
+                              {deletingStup ===
+                              familie.id
+                                ? "Se șterge..."
+                                : "🗑️ Șterge"}
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
@@ -1879,6 +2089,93 @@ export default function Home() {
                 ? "Se adaugă..."
                 : "🐝 Adaugă familiile"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {showAddToStupina && (
+        <div style={styles.overlay}>
+          <div style={styles.smallModal}>
+            <button
+              style={styles.closeButton}
+              onClick={() => {
+                setShowAddToStupina(false);
+                setSelectedStupina("");
+              }}
+            >
+              ×
+            </button>
+
+            <h2 style={styles.modalTitle}>
+              📍{" "}
+              {selectedFamilie?.stupina_id
+                ? "Schimbă stupina"
+                : "Adaugă la stupină"}
+            </h2>
+
+            <p style={styles.modalDescription}>
+              Stupul{" "}
+              <strong>
+                {selectedFamilie?.numar_stup}
+              </strong>{" "}
+              va fi asociat cu stupina selectată.
+            </p>
+
+            {stupine.length === 0 ? (
+              <div style={styles.noStupineBox}>
+                Nu există încă nicio stupină.
+                <br />
+                Creează mai întâi una din pagina{" "}
+                <strong>„Stupine”</strong>.
+              </div>
+            ) : (
+              <>
+                <label style={styles.label}>
+                  Alege stupina
+                </label>
+
+                <select
+                  style={styles.input}
+                  value={selectedStupina}
+                  onChange={(e) =>
+                    setSelectedStupina(
+                      e.target.value
+                    )
+                  }
+                >
+                  <option value="">
+                    Selectează stupina
+                  </option>
+
+                  {stupine.map((stupina) => (
+                    <option
+                      key={stupina.id}
+                      value={stupina.id}
+                    >
+                      {stupina.nume}
+                      {stupina.locatie
+                        ? " — " + stupina.locatie
+                        : ""}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  style={styles.confirmButton}
+                  onClick={addStupToStupina}
+                  disabled={
+                    savingStupina ||
+                    !selectedStupina
+                  }
+                >
+                  {savingStupina
+                    ? "Se salvează..."
+                    : selectedFamilie?.stupina_id
+                    ? "🔄 Schimbă stupina"
+                    : "📍 Adaugă la stupină"}
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -2429,7 +2726,6 @@ const styles = {
     fontSize: "14px",
   },
 
-  /* BUTON NOU PENTRU STUPINE */
   stupineButton: {
     padding: "12px 18px",
     background: "#f59e0b",
@@ -2618,7 +2914,7 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "1650px",
+    minWidth: "1800px",
   },
 
   th: {
@@ -2640,13 +2936,48 @@ const styles = {
   },
 
   actionCell: {
-    minWidth: "180px",
+    minWidth: "190px",
   },
 
   actionButtons: {
     display: "flex",
     gap: "7px",
     flexDirection: "column",
+  },
+
+  stupinaLocation: {
+    marginTop: "3px",
+    color: "#777",
+    fontSize: "12px",
+  },
+
+  noStupina: {
+    display: "inline-block",
+    padding: "5px 8px",
+    borderRadius: "7px",
+    background: "#f3f4f6",
+    color: "#777",
+    fontSize: "12px",
+  },
+
+  stupinaActionButton: {
+    border: "none",
+    borderRadius: "8px",
+    padding: "9px 12px",
+    background: "#f59e0b",
+    color: "#fff",
+    cursor: "pointer",
+    fontWeight: "bold",
+  },
+
+  removeStupinaButton: {
+    border: "none",
+    borderRadius: "8px",
+    padding: "9px 12px",
+    background: "#6b7280",
+    color: "#fff",
+    cursor: "pointer",
+    fontWeight: "bold",
   },
 
   stupLink: {
@@ -2985,6 +3316,15 @@ const styles = {
     borderRadius: "9px",
     color: "#166534",
     fontSize: "14px",
+    lineHeight: "1.6",
+  },
+
+  noStupineBox: {
+    background: "#fff7ed",
+    border: "1px solid #fed7aa",
+    borderRadius: "10px",
+    padding: "15px",
+    color: "#9a3412",
     lineHeight: "1.6",
   },
 
