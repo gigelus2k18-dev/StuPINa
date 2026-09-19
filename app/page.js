@@ -16,7 +16,7 @@ export default function Home() {
   const [showVerification, setShowVerification] = useState(false);
   const [showAddStup, setShowAddStup] = useState(false);
 
-  const [selectedStup, setSelectedStup] = useState(null);
+  const [selectedFamilie, setSelectedFamilie] = useState(null);
 
   const [savingTreatment, setSavingTreatment] = useState(false);
   const [savingVerification, setSavingVerification] = useState(false);
@@ -115,17 +115,26 @@ export default function Home() {
     setLoading(false);
   }
 
-  function openVerification(stup) {
-    setSelectedStup(stup);
+  function openVerification(familie) {
+    const esteStup = familie.tipFamilie === "Stup";
+
+    const original = familie.original || familie;
+
+    setSelectedFamilie({
+      ...original,
+      tipFamilie: esteStup
+        ? "Stup"
+        : familie.tipFamilie || original.tip || "Roi",
+    });
 
     setVerification({
       data: new Date().toISOString().split("T")[0],
-      matca: stup.matca || "",
-      an_matca: stup.an_matca || "",
-      rame: stup.rame || "",
-      rame_puiet: stup.rame_puiet || "",
-      rame_miere: stup.rame_miere || "",
-      rame_polen: stup.rame_polen || "",
+      matca: original.matca || "",
+      an_matca: original.an_matca || "",
+      rame: original.rame ?? "",
+      rame_puiet: original.rame_puiet ?? "",
+      rame_miere: original.rame_miere ?? "",
+      rame_polen: original.rame_polen ?? "",
       observatii: "",
     });
 
@@ -133,7 +142,7 @@ export default function Home() {
   }
 
   async function saveVerification() {
-    if (!selectedStup) return;
+    if (!selectedFamilie) return;
 
     if (!verification.data) {
       alert("Completează data verificării.");
@@ -142,26 +151,50 @@ export default function Home() {
 
     setSavingVerification(true);
 
+    const esteStup =
+      selectedFamilie.tipFamilie === "Stup";
+
     const record = {
-      stup_id: selectedStup.id,
+      stup_id: esteStup
+        ? selectedFamilie.id
+        : null,
+
+      roi_id: esteStup
+        ? null
+        : selectedFamilie.id,
+
       data_verificare: verification.data,
-      matca: verification.matca || null,
-      an_matca: verification.an_matca
-        ? Number(verification.an_matca)
-        : null,
-      rame: verification.rame
-        ? Number(verification.rame)
-        : null,
-      rame_puiet: verification.rame_puiet
-        ? Number(verification.rame_puiet)
-        : null,
-      rame_miere: verification.rame_miere
-        ? Number(verification.rame_miere)
-        : null,
-      rame_polen: verification.rame_polen
-        ? Number(verification.rame_polen)
-        : null,
-      observatii: verification.observatii || null,
+
+      matca:
+        verification.matca || null,
+
+      an_matca:
+        verification.an_matca
+          ? Number(verification.an_matca)
+          : null,
+
+      rame:
+        verification.rame !== ""
+          ? Number(verification.rame)
+          : null,
+
+      rame_puiet:
+        verification.rame_puiet !== ""
+          ? Number(verification.rame_puiet)
+          : null,
+
+      rame_miere:
+        verification.rame_miere !== ""
+          ? Number(verification.rame_miere)
+          : null,
+
+      rame_polen:
+        verification.rame_polen !== ""
+          ? Number(verification.rame_polen)
+          : null,
+
+      observatii:
+        verification.observatii || null,
     };
 
     const { data, error } = await supabase
@@ -172,17 +205,130 @@ export default function Home() {
 
     if (error) {
       console.error(error);
+
       alert(
         "Eroare la salvarea verificării: " +
           error.message
       );
     } else {
-      setVerificari((prev) => [data, ...prev]);
+      setVerificari((prev) => [
+        data,
+        ...prev,
+      ]);
+
+      /*
+       * Actualizăm și datele familiei,
+       * astfel încât ultima verificare să
+       * se vadă direct în tabelul principal.
+       */
+
+      if (esteStup) {
+        setStupi((prev) =>
+          prev.map((stup) =>
+            stup.id === selectedFamilie.id
+              ? {
+                  ...stup,
+                  matca:
+                    verification.matca ||
+                    null,
+                  an_matca:
+                    verification.an_matca
+                      ? Number(
+                          verification.an_matca
+                        )
+                      : null,
+                  rame:
+                    verification.rame !== ""
+                      ? Number(
+                          verification.rame
+                        )
+                      : null,
+                  rame_puiet:
+                    verification.rame_puiet !== ""
+                      ? Number(
+                          verification.rame_puiet
+                        )
+                      : null,
+                  rame_miere:
+                    verification.rame_miere !== ""
+                      ? Number(
+                          verification.rame_miere
+                        )
+                      : null,
+                  rame_polen:
+                    verification.rame_polen !== ""
+                      ? Number(
+                          verification.rame_polen
+                        )
+                      : null,
+                  observatii:
+                    verification.observatii ||
+                    null,
+                }
+              : stup
+          )
+        );
+      } else {
+        setRoiuri((prev) =>
+          prev.map((roi) =>
+            roi.id === selectedFamilie.id
+              ? {
+                  ...roi,
+                  matca:
+                    verification.matca ||
+                    null,
+                  an_matca:
+                    verification.an_matca
+                      ? Number(
+                          verification.an_matca
+                        )
+                      : null,
+                  rame:
+                    verification.rame !== ""
+                      ? Number(
+                          verification.rame
+                        )
+                      : null,
+                  rame_puiet:
+                    verification.rame_puiet !== ""
+                      ? Number(
+                          verification.rame_puiet
+                        )
+                      : null,
+                  rame_miere:
+                    verification.rame_miere !== ""
+                      ? Number(
+                          verification.rame_miere
+                        )
+                      : null,
+                  rame_polen:
+                    verification.rame_polen !== ""
+                      ? Number(
+                          verification.rame_polen
+                        )
+                      : null,
+                  observatii:
+                    verification.observatii ||
+                    null,
+                }
+              : roi
+          )
+        );
+      }
+
       setShowVerification(false);
 
+      const numeFamilie = esteStup
+        ? "stupul " +
+          selectedFamilie.numar_stup
+        : (selectedFamilie.tip ||
+            selectedFamilie.tipFamilie) +
+          " " +
+          selectedFamilie.numar;
+
       alert(
-        "Verificarea pentru stupul " +
-          selectedStup.numar_stup +
+        "Verificarea pentru " +
+          numeFamilie +
           " a fost salvată!"
       );
     }
@@ -212,7 +358,8 @@ export default function Home() {
 
     const alreadyExists = stupi.some(
       (stup) =>
-        Number(stup.numar_stup) === numericNumber
+        Number(stup.numar_stup) ===
+        numericNumber
     );
 
     if (alreadyExists) {
@@ -245,6 +392,7 @@ export default function Home() {
 
     if (error) {
       console.error(error);
+
       alert(
         "Eroare la adăugarea stupului: " +
           error.message
@@ -271,7 +419,10 @@ export default function Home() {
     setSavingStup(false);
   }
 
-  async function updateStupStatus(stupId, status) {
+  async function updateStupStatus(
+    stupId,
+    status
+  ) {
     const { error } = await supabase
       .from("stupi")
       .update({ status })
@@ -279,6 +430,7 @@ export default function Home() {
 
     if (error) {
       console.error(error);
+
       alert(
         "Eroare la schimbarea statusului: " +
           error.message
@@ -295,7 +447,10 @@ export default function Home() {
     );
   }
 
-  async function updateRoiStatus(roiId, status) {
+  async function updateRoiStatus(
+    roiId,
+    status
+  ) {
     const { error } = await supabase
       .from("roiuri")
       .update({ status })
@@ -303,6 +458,7 @@ export default function Home() {
 
     if (error) {
       console.error(error);
+
       alert(
         "Eroare la schimbarea statusului roiului/nucleului: " +
           error.message
@@ -346,6 +502,7 @@ export default function Home() {
 
     if (stupiError) {
       console.error(stupiError);
+
       alert(
         "Eroare la schimbarea statusurilor stupilor: " +
           stupiError.message
@@ -361,6 +518,7 @@ export default function Home() {
 
     if (roiuriError) {
       console.error(roiuriError);
+
       alert(
         "Stupii au fost actualizați, dar roiurile/nucleele nu au putut fi actualizate.\n\n" +
           roiuriError.message
@@ -390,7 +548,9 @@ export default function Home() {
 
   async function applyTreatmentToAll() {
     if (!treatment.tip || !treatment.data) {
-      alert("Completează tratamentul și data.");
+      alert(
+        "Completează tratamentul și data."
+      );
       return;
     }
 
@@ -414,21 +574,29 @@ export default function Home() {
 
     setSavingTreatment(true);
 
-    const stupiRecords = stupi.map((stup) => ({
-      stup_id: stup.id,
-      roi_id: null,
-      tip: treatment.tip,
-      data_tratament: treatment.data,
-      detalii: treatment.detalii || null,
-    }));
+    const stupiRecords = stupi.map(
+      (stup) => ({
+        stup_id: stup.id,
+        roi_id: null,
+        tip: treatment.tip,
+        data_tratament:
+          treatment.data,
+        detalii:
+          treatment.detalii || null,
+      })
+    );
 
-    const roiuriRecords = roiuri.map((roi) => ({
-      stup_id: null,
-      roi_id: roi.id,
-      tip: treatment.tip,
-      data_tratament: treatment.data,
-      detalii: treatment.detalii || null,
-    }));
+    const roiuriRecords = roiuri.map(
+      (roi) => ({
+        stup_id: null,
+        roi_id: roi.id,
+        tip: treatment.tip,
+        data_tratament:
+          treatment.data,
+        detalii:
+          treatment.detalii || null,
+      })
+    );
 
     const records = [
       ...stupiRecords,
@@ -439,6 +607,7 @@ export default function Home() {
       alert(
         "Nu există nicio familie înregistrată."
       );
+
       setSavingTreatment(false);
       return;
     }
@@ -450,6 +619,7 @@ export default function Home() {
 
     if (error) {
       console.error(error);
+
       alert(
         "Eroare la adăugarea tratamentului: " +
           error.message
@@ -474,7 +644,9 @@ export default function Home() {
 
       setTreatment({
         tip: "Amitraz",
-        data: new Date().toISOString().split("T")[0],
+        data: new Date()
+          .toISOString()
+          .split("T")[0],
         detalii: "",
       });
     }
@@ -482,7 +654,9 @@ export default function Home() {
     setSavingTreatment(false);
   }
 
-  async function deleteTreatmentBatch(batch) {
+  async function deleteTreatmentBatch(
+    batch
+  ) {
     const confirmare = window.confirm(
       "Sigur vrei să ștergi tratamentul " +
         batch.tip +
@@ -491,7 +665,8 @@ export default function Home() {
         " pentru cele " +
         batch.count +
         " familii?\n\nDetalii: " +
-        (batch.detalii || "Fără detalii")
+        (batch.detalii ||
+          "Fără detalii")
     );
 
     if (!confirmare) return;
@@ -523,6 +698,7 @@ export default function Home() {
 
     if (error) {
       console.error(error);
+
       alert(
         "Eroare la ștergere: " +
           error.message
@@ -531,7 +707,8 @@ export default function Home() {
       setTratamente((prev) =>
         prev.filter((tratament) => {
           const sameTip =
-            tratament.tip === batch.tip;
+            tratament.tip ===
+            batch.tip;
 
           const sameDate =
             tratament.data_tratament ===
@@ -565,7 +742,10 @@ export default function Home() {
         <h1 style={styles.title}>
           🐝 StuPINa
         </h1>
-        <p>Se încarcă stupina...</p>
+
+        <p>
+          Se încarcă stupina...
+        </p>
       </main>
     );
   }
@@ -577,13 +757,17 @@ export default function Home() {
     stupi.reduce(
       (total, stup) =>
         total +
-        Number(stup.miere_kg || 0),
+        Number(
+          stup.miere_kg || 0
+        ),
       0
     ) +
     roiuri.reduce(
       (total, roi) =>
         total +
-        Number(roi.miere_kg || 0),
+        Number(
+          roi.miere_kg || 0
+        ),
       0
     );
 
@@ -591,13 +775,17 @@ export default function Home() {
     stupi.reduce(
       (total, stup) =>
         total +
-        Number(stup.rame_puiet || 0),
+        Number(
+          stup.rame_puiet || 0
+        ),
       0
     ) +
     roiuri.reduce(
       (total, roi) =>
         total +
-        Number(roi.rame_puiet || 0),
+        Number(
+          roi.rame_puiet || 0
+        ),
       0
     );
 
@@ -605,13 +793,17 @@ export default function Home() {
     stupi.reduce(
       (total, stup) =>
         total +
-        Number(stup.rame_miere || 0),
+        Number(
+          stup.rame_miere || 0
+        ),
       0
     ) +
     roiuri.reduce(
       (total, roi) =>
         total +
-        Number(roi.rame_miere || 0),
+        Number(
+          roi.rame_miere || 0
+        ),
       0
     );
 
@@ -619,13 +811,17 @@ export default function Home() {
     stupi.reduce(
       (total, stup) =>
         total +
-        Number(stup.rame_polen || 0),
+        Number(
+          stup.rame_polen || 0
+        ),
       0
     ) +
     roiuri.reduce(
       (total, roi) =>
         total +
-        Number(roi.rame_polen || 0),
+        Number(
+          roi.rame_polen || 0
+        ),
       0
     );
 
@@ -663,7 +859,8 @@ export default function Home() {
       (stup) => ({
         tipFamilie: "stup",
         id: stup.id,
-        numar: stup.numar_stup,
+        numar:
+          stup.numar_stup,
         matca: stup.matca,
         rame_puiet:
           stup.rame_puiet,
@@ -742,11 +939,6 @@ export default function Home() {
   const hasSearch =
     searchTerm.length > 0;
 
-  /*
-   * AICI COMBINĂM STUPII CU ROIURILE ȘI NUCLEE.
-   * Astfel, toate apar în același tabel.
-   */
-
   const familiiTabel = [
     ...filteredStupi.map(
       (stup) => ({
@@ -797,6 +989,7 @@ export default function Home() {
           roi.observatii,
         origine:
           roi.origine,
+        tip: roi.tip,
         original: roi,
       })
     ),
@@ -920,7 +1113,9 @@ export default function Home() {
       </section>
 
       {alerte.length > 0 && (
-        <section style={styles.alertSection}>
+        <section
+          style={styles.alertSection}
+        >
           <div style={styles.alertTitle}>
             🚨 Atenție
           </div>
@@ -1023,10 +1218,8 @@ export default function Home() {
           <div
             style={styles.searchResults}
           >
-            {filteredStupi.length ===
-              0 &&
-            filteredRoiuri.length ===
-              0 ? (
+            {filteredStupi.length === 0 &&
+            filteredRoiuri.length === 0 ? (
               <div
                 style={
                   styles.noSearchResults
@@ -1117,8 +1310,7 @@ export default function Home() {
                         styles.searchGroupTitle
                       }
                     >
-                      🐝 Roiuri /
-                      Nuclee
+                      🐝 Roiuri / Nuclee
                     </div>
 
                     <div
@@ -1405,11 +1597,13 @@ export default function Home() {
         )}
       </section>
 
-      {/* TABELUL PRINCIPAL CU TOATE FAMILIILE */}
-
-      <section style={styles.mainTableSection}>
+      <section
+        style={styles.mainTableSection}
+      >
         <div
-          style={styles.mainTableHeader}
+          style={
+            styles.mainTableHeader
+          }
         >
           <div>
             <h2
@@ -1440,7 +1634,9 @@ export default function Home() {
           </div>
         </div>
 
-        <div style={styles.tableWrapper}>
+        <div
+          style={styles.tableWrapper}
+        >
           <table style={styles.table}>
             <thead>
               <tr>
@@ -1721,29 +1917,18 @@ export default function Home() {
                           styles.td
                         }
                       >
-                        {esteStup ? (
-                          <button
-                            style={
-                              styles.verifyButton
-                            }
-                            onClick={() =>
-                              openVerification(
-                                familie.original
-                              )
-                            }
-                          >
-                            📝 Verifică
-                          </button>
-                        ) : (
-                          <Link
-                            href="/roiuri"
-                            style={
-                              styles.manageRoiButton
-                            }
-                          >
-                            🐝 Gestionează
-                          </Link>
-                        )}
+                        <button
+                          style={
+                            styles.verifyButton
+                          }
+                          onClick={() =>
+                            openVerification(
+                              familie
+                            )
+                          }
+                        >
+                          📝 Verifică
+                        </button>
                       </td>
                     </tr>
                   );
@@ -1849,9 +2034,24 @@ export default function Home() {
             <h2
               style={styles.modalTitle}
             >
-              📝 Verificare Stupul{" "}
-              {selectedStup?.numar_stup}
+              📝 Verificare{" "}
+              {selectedFamilie?.tipFamilie ===
+              "Stup"
+                ? "Stupul " +
+                  selectedFamilie?.numar_stup
+                : selectedFamilie?.tip +
+                  " " +
+                  selectedFamilie?.numar}
             </h2>
+
+            <p
+              style={
+                styles.modalDescription
+              }
+            >
+              Completează datele observate
+              la verificarea familiei.
+            </p>
 
             <label style={styles.label}>
               Data verificării
@@ -2677,16 +2877,6 @@ const styles = {
     background: "#1976d2",
     color: "#fff",
     cursor: "pointer",
-    fontWeight: "bold",
-  },
-
-  manageRoiButton: {
-    display: "inline-block",
-    borderRadius: "8px",
-    padding: "9px 12px",
-    background: "#2e7d32",
-    color: "#fff",
-    textDecoration: "none",
     fontWeight: "bold",
   },
 
