@@ -68,61 +68,67 @@ export default function Home() {
   }
 
   async function applyTreatmentToAll() {
-    if (!treatment.tip || !treatment.data) {
-      alert("Completează tratamentul și data.");
-      return;
-    }
-
-    const confirmare = window.confirm(
-      `Ești sigur că vrei să adaugi tratamentul "${treatment.tip}" pentru toți cei ${stupi.length} stupi?`
-    );
-
-    if (!confirmare) return;
-
-    setSavingTreatment(true);
-
-    const records = stupi.map((stup) => ({
-      stup_id: stup.id,
-      tip: treatment.tip,
-      data_tratament: treatment.data,
-      detalii: treatment.detalii || null,
-    }));
-
-    const { data, error } = await supabase
-      .from("tratamente")
-      .insert(records)
-      .select();
-
-    if (error) {
-      console.error(error);
-      alert(
-        "Eroare la adăugarea tratamentului: " +
-          error.message
-      );
-    } else {
-      setTratamente((prev) => [
-        ...(data || []),
-        ...prev,
-      ]);
-
-      alert(
-        `Tratamentul a fost adăugat pentru toți cei ${stupi.length} stupi!`
-      );
-
-      setShowTreatment(false);
-
-      setTreatment({
-        tip: "Amitraz",
-        data: new Date()
-          .toISOString()
-          .split("T")[0],
-        detalii: "",
-      });
-    }
-
-    setSavingTreatment(false);
+  if (!treatment.tip || !treatment.data) {
+    alert("Completează tratamentul și data.");
+    return;
   }
 
+  const confirmare = window.confirm(
+    "Ești sigur că vrei să adaugi tratamentul \"" +
+      treatment.tip +
+      "\" pentru toți cei " +
+      stupi.length +
+      " stupi?"
+  );
+
+  if (!confirmare) return;
+
+  setSavingTreatment(true);
+
+  const records = stupi.map((stup) => ({
+    stup_id: stup.id,
+    tip: treatment.tip,
+    data_tratament: treatment.data,
+    detalii: treatment.detalii || null,
+  }));
+
+  const { data, error } = await supabase
+    .from("tratamente")
+    .insert(records)
+    .select();
+
+  if (error) {
+    console.error(error);
+
+    alert(
+      "Eroare la adăugarea tratamentului: " +
+        error.message
+    );
+  } else {
+    setTratamente((prev) => [
+      ...(data || []),
+      ...prev,
+    ]);
+
+    alert(
+      "Tratamentul a fost adăugat pentru toți cei " +
+        stupi.length +
+        " stupi!"
+    );
+
+    setShowTreatment(false);
+
+    setTreatment({
+      tip: "Amitraz",
+      data: new Date()
+        .toISOString()
+        .split("T")[0],
+      detalii: "",
+    });
+  }
+
+  setSavingTreatment(false);
+}
   async function deleteTreatmentBatch(batch) {
     const confirmare = window.confirm(
       `Sigur vrei să ștergi "${batch.tip}" din ${batch.data_tratament} pentru cei ${batch.count} stupi?\n\nDetalii: ${
