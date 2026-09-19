@@ -502,30 +502,35 @@ export default function Home() {
         />
       </section>
 
-      <section style={styles.actionsSection}>
-        <Link
-          href="/statistici"
-          style={styles.statsButton}
-        >
-          📊 Statistici complete
-        </Link>
+     <section style={styles.actionsSection}>
+  <Link
+    href="/statistici"
+    style={styles.statsButton}
+  >
+    📊 Statistici complete
+  </Link>
 
-        <button
-          style={styles.treatmentButton}
-          onClick={() =>
-            setShowTreatment(true)
-          }
-        >
-          💊 Tratamente pentru toți stupii
-        </button>
+  <button
+    style={styles.treatmentButton}
+    onClick={() => setShowTreatment(true)}
+  >
+    💊 Tratamente pentru toți stupii
+  </button>
 
-        <Link
-          href="/tratamente"
-          style={styles.historyButton}
-        >
-          📜 Istoric tratamente
-        </Link>
-      </section>
+  <Link
+    href="/tratamente"
+    style={styles.historyButton}
+  >
+    📜 Istoric tratamente
+  </Link>
+
+  <Link
+    href="/roiuri"
+    style={styles.historyButton}
+  >
+    🐝 Roiuri / Nuclee
+  </Link>
+</section>
             <Link
   href="/roiuri"
   style={styles.historyButton}
