@@ -47,31 +47,40 @@ export default function StupPage() {
       .from("stupi")
       .update({
         matca: stup.matca || null,
+
         an_matca: stup.an_matca
           ? Number(stup.an_matca)
           : null,
+
         rame: stup.rame
           ? Number(stup.rame)
           : null,
+
         rame_puiet: stup.rame_puiet
           ? Number(stup.rame_puiet)
           : null,
+
         rame_miere: stup.rame_miere
           ? Number(stup.rame_miere)
           : null,
+
         rame_polen: stup.rame_polen
           ? Number(stup.rame_polen)
           : null,
+
         miere_kg: stup.miere_kg
           ? Number(stup.miere_kg)
           : null,
-       status: stup.status || null,
 
-amitraz: stup.amitraz || null,
-oxalic: stup.oxalic || null,
-alte_tratamente: stup.alte_tratamente || null,
+        status: stup.status || null,
 
-observatii: stup.observatii || null,
+        amitraz: stup.amitraz || null,
+
+        oxalic: stup.oxalic || null,
+
+        alte_tratamente: stup.alte_tratamente || null,
+
+        observatii: stup.observatii || null,
       })
       .eq("id", stup.id)
       .select()
@@ -94,17 +103,6 @@ observatii: stup.observatii || null,
         <p>Se încarcă stupul...</p>
       </main>
     );
-    treatmentSection: {
-  marginTop: "20px",
-  paddingTop: "20px",
-  borderTop: "2px solid #eee",
-},
-
-treatmentTitle: {
-  marginTop: 0,
-  marginBottom: "15px",
-  fontSize: "20px",
-},
   }
 
   if (!stup) {
@@ -146,6 +144,7 @@ treatmentTitle: {
       <div style={styles.layout}>
 
         {/* PARTEA STÂNGĂ */}
+
         <section style={styles.hiveSection}>
 
           <div style={styles.queen}>
@@ -185,7 +184,10 @@ treatmentTitle: {
               onClick={() =>
                 handleChange(
                   "rame",
-                  Math.max(0, Number(stup.rame || 0) - 1)
+                  Math.max(
+                    0,
+                    Number(stup.rame || 0) - 1
+                  )
                 )
               }
             >
@@ -216,7 +218,10 @@ treatmentTitle: {
 
             <div style={styles.hiveBody}>
               {Array.from({
-                length: Math.min(Number(stup.rame || 5), 10),
+                length: Math.min(
+                  Number(stup.rame || 5),
+                  10
+                ),
               }).map((_, index) => (
                 <div
                   key={index}
@@ -259,7 +264,10 @@ treatmentTitle: {
             type="number"
             value={stup.rame_puiet}
             onChange={(value) =>
-              handleChange("rame_puiet", value)
+              handleChange(
+                "rame_puiet",
+                value
+              )
             }
           />
 
@@ -268,7 +276,10 @@ treatmentTitle: {
             type="number"
             value={stup.rame_miere}
             onChange={(value) =>
-              handleChange("rame_miere", value)
+              handleChange(
+                "rame_miere",
+                value
+              )
             }
           />
 
@@ -277,7 +288,10 @@ treatmentTitle: {
             type="number"
             value={stup.rame_polen}
             onChange={(value) =>
-              handleChange("rame_polen", value)
+              handleChange(
+                "rame_polen",
+                value
+              )
             }
           />
 
@@ -287,7 +301,10 @@ treatmentTitle: {
             step="0.1"
             value={stup.miere_kg}
             onChange={(value) =>
-              handleChange("miere_kg", value)
+              handleChange(
+                "miere_kg",
+                value
+              )
             }
           />
 
@@ -296,43 +313,59 @@ treatmentTitle: {
             value={stup.status}
             placeholder="Ex: Puternic"
             onChange={(value) =>
-              handleChange("status", value)
+              handleChange(
+                "status",
+                value
+              )
             }
           />
-{/* TRATAMENTE */}
 
-<div style={styles.treatmentSection}>
-  <h2 style={styles.treatmentTitle}>
-    💊 Tratamente
-  </h2>
+          {/* TRATAMENTE */}
 
-  <EditCard
-    label="Amitraz"
-    value={stup.amitraz}
-    placeholder="Ex: 3 tratamente - 05.09, 12.09, 19.09"
-    onChange={(value) =>
-      handleChange("amitraz", value)
-    }
-  />
+          <div style={styles.treatmentSection}>
+            <h2 style={styles.treatmentTitle}>
+              💊 Tratamente
+            </h2>
 
-  <EditCard
-    label="Acid oxalic"
-    value={stup.oxalic}
-    placeholder="Ex: 10.12.2026"
-    onChange={(value) =>
-      handleChange("oxalic", value)
-    }
-  />
+            <EditCard
+              label="Amitraz"
+              value={stup.amitraz}
+              placeholder="Ex: 3 tratamente - 05.09, 12.09, 19.09"
+              onChange={(value) =>
+                handleChange(
+                  "amitraz",
+                  value
+                )
+              }
+            />
 
-  <EditCard
-    label="Alte tratamente"
-    value={stup.alte_tratamente}
-    placeholder="Ex: Acid formic - 01.08.2026"
-    onChange={(value) =>
-      handleChange("alte_tratamente", value)
-    }
-  />
-</div>
+            <EditCard
+              label="Acid oxalic"
+              value={stup.oxalic}
+              placeholder="Ex: 10.12.2026"
+              onChange={(value) =>
+                handleChange(
+                  "oxalic",
+                  value
+                )
+              }
+            />
+
+            <EditCard
+              label="Alte tratamente"
+              value={stup.alte_tratamente}
+              placeholder="Ex: Acid formic - 01.08.2026"
+              onChange={(value) =>
+                handleChange(
+                  "alte_tratamente",
+                  value
+                )
+              }
+            />
+          </div>
+
+          {/* OBSERVAȚII */}
+
           <div style={styles.card}>
             <div style={styles.cardLabel}>
               📝 Observații
@@ -350,6 +383,8 @@ treatmentTitle: {
               }
             />
           </div>
+
+          {/* SALVARE */}
 
           <button
             style={styles.saveButton}
@@ -611,6 +646,18 @@ const styles = {
     borderRadius: "7px",
     fontSize: "15px",
     resize: "vertical",
+  },
+
+  treatmentSection: {
+    marginTop: "20px",
+    paddingTop: "20px",
+    borderTop: "2px solid #eee",
+  },
+
+  treatmentTitle: {
+    marginTop: 0,
+    marginBottom: "15px",
+    fontSize: "20px",
   },
 
   saveButton: {
