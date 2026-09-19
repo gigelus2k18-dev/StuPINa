@@ -10,7 +10,7 @@ export default function StupPage() {
 
   const [stup, setStup] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [rame, setRame] = useState(0);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     getStup();
@@ -28,24 +28,59 @@ export default function StupPage() {
       alert("Nu s-au putut încărca datele stupului.");
     } else {
       setStup(data);
-      setRame(data.rame || 0);
     }
 
     setLoading(false);
   }
 
-  async function saveRame(newRame) {
-    setRame(newRame);
+  function handleChange(field, value) {
+    setStup((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }
 
-    const { error } = await supabase
+  async function saveChanges() {
+    setSaving(true);
+
+    const { data, error } = await supabase
       .from("stupi")
-      .update({ rame: newRame })
-      .eq("id", stup.id);
+      .update({
+        matca: stup.matca || null,
+        an_matca: stup.an_matca
+          ? Number(stup.an_matca)
+          : null,
+        rame: stup.rame
+          ? Number(stup.rame)
+          : null,
+        rame_puiet: stup.rame_puiet
+          ? Number(stup.rame_puiet)
+          : null,
+        rame_miere: stup.rame_miere
+          ? Number(stup.rame_miere)
+          : null,
+        rame_polen: stup.rame_polen
+          ? Number(stup.rame_polen)
+          : null,
+        miere_kg: stup.miere_kg
+          ? Number(stup.miere_kg)
+          : null,
+        status: stup.status || null,
+        observatii: stup.observatii || null,
+      })
+      .eq("id", stup.id)
+      .select()
+      .single();
 
     if (error) {
       console.error(error);
-      alert("Nu s-a putut salva numărul de rame.");
+      alert("Eroare la salvare: " + error.message);
+    } else {
+      setStup(data);
+      alert("Datele stupului au fost salvate!");
     }
+
+    setSaving(false);
   }
 
   if (loading) {
@@ -60,8 +95,12 @@ export default function StupPage() {
     return (
       <main style={styles.page}>
         <h1>Stupul nu a fost găsit.</h1>
-        <button onClick={() => router.push("/")}>
-          Înapoi la stupină
+
+        <button
+          style={styles.backButton}
+          onClick={() => router.push("/")}
+        >
+          ← Înapoi la stupină
         </button>
       </main>
     );
@@ -78,65 +117,104 @@ export default function StupPage() {
         </button>
 
         <div>
-          <h1 style={styles.title}>🐝 Stupul {stup.numar_stup}</h1>
-          <p style={styles.subtitle}>Fișa stupului</p>
+          <h1 style={styles.title}>
+            🐝 Stupul {stup.numar_stup}
+          </h1>
+
+          <p style={styles.subtitle}>
+            Fișa stupului
+          </p>
         </div>
       </header>
 
       <div style={styles.layout}>
-        <section style={styles.hiveSection}>
-          <div style={styles.queen}>
-            <div style={styles.queenTitle}>MATCĂ</div>
 
-            <div style={styles.queenValue}>
-              {stup.matca || "Nespecificată"}
+        {/* PARTEA STÂNGĂ */}
+        <section style={styles.hiveSection}>
+
+          <div style={styles.queen}>
+            <div style={styles.queenTitle}>
+              MATCĂ
             </div>
+
+            <input
+              style={styles.queenInput}
+              value={stup.matca || ""}
+              placeholder="Ex: Carnica"
+              onChange={(e) =>
+                handleChange("matca", e.target.value)
+              }
+            />
 
             <div style={styles.queenYear}>
-              {stup.an_matca
-                ? `Anul ${stup.an_matca}`
-                : "An nespecificat"}
+              Anul matcii
             </div>
+
+            <input
+              style={styles.yearInput}
+              type="number"
+              value={stup.an_matca || ""}
+              placeholder="2026"
+              onChange={(e) =>
+                handleChange("an_matca", e.target.value)
+              }
+            />
           </div>
+
+          {/* CONTROALE RAME */}
 
           <div style={styles.frameControls}>
             <button
               style={styles.frameButton}
-              onClick={() => {
-                if (rame > 0) saveRame(rame - 1);
-              }}
+              onClick={() =>
+                handleChange(
+                  "rame",
+                  Math.max(0, Number(stup.rame || 0) - 1)
+                )
+              }
             >
               −
             </button>
 
             <div style={styles.frameNumber}>
-              {rame} rame
+              {stup.rame || 0} rame
             </div>
 
             <button
               style={styles.frameButton}
-              onClick={() => saveRame(rame + 1)}
+              onClick={() =>
+                handleChange(
+                  "rame",
+                  Number(stup.rame || 0) + 1
+                )
+              }
             >
               +
             </button>
           </div>
 
+          {/* STUP */}
+
           <div style={styles.hive}>
             <div style={styles.hiveRoof}></div>
 
             <div style={styles.hiveBody}>
-              {Array.from({ length: rame || 5 }).map((_, index) => (
+              {Array.from({
+                length: Math.min(Number(stup.rame || 5), 10),
+              }).map((_, index) => (
                 <div
                   key={index}
                   style={styles.frame}
                 >
                   <div style={styles.frameInner}>
                     <div style={styles.cells}>
-                      ⬡ ⬡ ⬡ ⬡ ⬡
+                      ⬡ ⬡
                       <br />
-                      ⬡ ⬡ ⬡ ⬡ ⬡
+                      ⬡ ⬡
                       <br />
-                      ⬡ ⬡ ⬡ ⬡ ⬡
+                      ⬡ ⬡
+                      <br />
+                      ⬡ ⬡
                     </div>
                   </div>
                 </div>
@@ -149,72 +227,121 @@ export default function StupPage() {
           <div style={styles.hiveLabel}>
             STUPUL {stup.numar_stup}
           </div>
+
         </section>
 
+        {/* PARTEA DREAPTĂ */}
+
         <aside style={styles.panel}>
-          <h2 style={styles.panelTitle}>Datele stupului</h2>
 
-          <InfoCard
-            label="👑 Matcă"
-            value={stup.matca || "Nespecificată"}
-          />
+          <h2 style={styles.panelTitle}>
+            Datele stupului
+          </h2>
 
-          <InfoCard
-            label="📅 An matcă"
-            value={stup.an_matca || "—"}
-          />
-
-          <InfoCard
-            label="🪵 Număr rame"
-            value={rame || "—"}
-          />
-
-          <InfoCard
+          <EditCard
             label="🐝 Rame cu puiet"
-            value={stup.rame_puiet || "—"}
-          />
-
-          <InfoCard
-            label="🍯 Rame cu miere"
-            value={stup.rame_miere || "—"}
-          />
-
-          <InfoCard
-            label="🌼 Rame cu polen"
-            value={stup.rame_polen || "—"}
-          />
-
-          <InfoCard
-            label="⚖️ Miere"
-            value={
-              stup.miere_kg
-                ? `${stup.miere_kg} kg`
-                : "—"
+            type="number"
+            value={stup.rame_puiet}
+            onChange={(value) =>
+              handleChange("rame_puiet", value)
             }
           />
 
-          <InfoCard
-            label="📊 Status"
-            value={stup.status || "Nespecificat"}
+          <EditCard
+            label="🍯 Rame cu miere"
+            type="number"
+            value={stup.rame_miere}
+            onChange={(value) =>
+              handleChange("rame_miere", value)
+            }
           />
 
-          <div style={styles.observatii}>
-            <div style={styles.cardLabel}>📝 Observații</div>
-            <div style={styles.observatiiText}>
-              {stup.observatii || "Nu există observații."}
+          <EditCard
+            label="🌼 Rame cu polen"
+            type="number"
+            value={stup.rame_polen}
+            onChange={(value) =>
+              handleChange("rame_polen", value)
+            }
+          />
+
+          <EditCard
+            label="⚖️ Miere (kg)"
+            type="number"
+            step="0.1"
+            value={stup.miere_kg}
+            onChange={(value) =>
+              handleChange("miere_kg", value)
+            }
+          />
+
+          <EditCard
+            label="📊 Status"
+            value={stup.status}
+            placeholder="Ex: Puternic"
+            onChange={(value) =>
+              handleChange("status", value)
+            }
+          />
+
+          <div style={styles.card}>
+            <div style={styles.cardLabel}>
+              📝 Observații
             </div>
+
+            <textarea
+              style={styles.textarea}
+              value={stup.observatii || ""}
+              placeholder="Scrie observațiile despre stup..."
+              onChange={(e) =>
+                handleChange(
+                  "observatii",
+                  e.target.value
+                )
+              }
+            />
           </div>
+
+          <button
+            style={styles.saveButton}
+            onClick={saveChanges}
+            disabled={saving}
+          >
+            {saving
+              ? "Se salvează..."
+              : "💾 Salvează modificările"}
+          </button>
+
         </aside>
       </div>
     </main>
   );
 }
 
-function InfoCard({ label, value }) {
+function EditCard({
+  label,
+  value,
+  type = "text",
+  step,
+  placeholder,
+  onChange,
+}) {
   return (
     <div style={styles.card}>
-      <div style={styles.cardLabel}>{label}</div>
-      <div style={styles.cardValue}>{value}</div>
+      <div style={styles.cardLabel}>
+        {label}
+      </div>
+
+      <input
+        style={styles.editInput}
+        type={type}
+        step={step}
+        value={value ?? ""}
+        placeholder={placeholder}
+        onChange={(e) =>
+          onChange(e.target.value)
+        }
+      />
     </div>
   );
 }
@@ -282,15 +409,29 @@ const styles = {
     color: "#777",
   },
 
-  queenValue: {
-    fontSize: "24px",
+  queenInput: {
+    marginTop: "8px",
+    padding: "10px 14px",
+    border: "1px solid #ccc",
+    borderRadius: "8px",
+    fontSize: "22px",
     fontWeight: "bold",
-    marginTop: "5px",
+    textAlign: "center",
+    width: "220px",
   },
 
   queenYear: {
     color: "#888",
-    marginTop: "4px",
+    marginTop: "10px",
+    marginBottom: "5px",
+  },
+
+  yearInput: {
+    width: "100px",
+    padding: "8px",
+    border: "1px solid #ccc",
+    borderRadius: "8px",
+    textAlign: "center",
   },
 
   frameControls: {
@@ -400,23 +541,39 @@ const styles = {
   cardLabel: {
     fontSize: "13px",
     color: "#777",
-    marginBottom: "5px",
+    marginBottom: "7px",
   },
 
-  cardValue: {
-    fontSize: "17px",
-    fontWeight: "bold",
+  editInput: {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "10px",
+    border: "1px solid #ccc",
+    borderRadius: "7px",
+    fontSize: "16px",
   },
 
-  observatii: {
+  textarea: {
+    width: "100%",
+    minHeight: "90px",
+    boxSizing: "border-box",
+    padding: "10px",
+    border: "1px solid #ccc",
+    borderRadius: "7px",
+    fontSize: "15px",
+    resize: "vertical",
+  },
+
+  saveButton: {
+    width: "100%",
     padding: "14px",
-    borderRadius: "10px",
-    background: "#f7f7f7",
+    border: "none",
+    borderRadius: "9px",
+    background: "#2e7d32",
+    color: "#fff",
+    cursor: "pointer",
+    fontSize: "16px",
+    fontWeight: "bold",
     marginTop: "10px",
-  },
-
-  observatiiText: {
-    marginTop: "8px",
-    lineHeight: "1.5",
   },
 };
