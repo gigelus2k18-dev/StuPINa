@@ -65,8 +65,13 @@ export default function StupPage() {
         miere_kg: stup.miere_kg
           ? Number(stup.miere_kg)
           : null,
-        status: stup.status || null,
-        observatii: stup.observatii || null,
+       status: stup.status || null,
+
+amitraz: stup.amitraz || null,
+oxalic: stup.oxalic || null,
+alte_tratamente: stup.alte_tratamente || null,
+
+observatii: stup.observatii || null,
       })
       .eq("id", stup.id)
       .select()
@@ -89,6 +94,17 @@ export default function StupPage() {
         <p>Se încarcă stupul...</p>
       </main>
     );
+    treatmentSection: {
+  marginTop: "20px",
+  paddingTop: "20px",
+  borderTop: "2px solid #eee",
+},
+
+treatmentTitle: {
+  marginTop: 0,
+  marginBottom: "15px",
+  fontSize: "20px",
+},
   }
 
   if (!stup) {
@@ -283,7 +299,40 @@ export default function StupPage() {
               handleChange("status", value)
             }
           />
+{/* TRATAMENTE */}
 
+<div style={styles.treatmentSection}>
+  <h2 style={styles.treatmentTitle}>
+    💊 Tratamente
+  </h2>
+
+  <EditCard
+    label="Amitraz"
+    value={stup.amitraz}
+    placeholder="Ex: 3 tratamente - 05.09, 12.09, 19.09"
+    onChange={(value) =>
+      handleChange("amitraz", value)
+    }
+  />
+
+  <EditCard
+    label="Acid oxalic"
+    value={stup.oxalic}
+    placeholder="Ex: 10.12.2026"
+    onChange={(value) =>
+      handleChange("oxalic", value)
+    }
+  />
+
+  <EditCard
+    label="Alte tratamente"
+    value={stup.alte_tratamente}
+    placeholder="Ex: Acid formic - 01.08.2026"
+    onChange={(value) =>
+      handleChange("alte_tratamente", value)
+    }
+  />
+</div>
           <div style={styles.card}>
             <div style={styles.cardLabel}>
               📝 Observații
