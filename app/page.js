@@ -532,11 +532,15 @@ return ( <main style={styles.page}>
     </Link>
 
     <button
-      style={styles.treatmentButton}
-      onClick={() =>
-        setShowTreatment(true)
-      }
-        <Link
+  style={styles.treatmentButton}
+  onClick={() =>
+    setShowTreatment(true)
+  }
+>
+  💊 Tratamente pentru toți stupii
+</button>
+
+<Link
   href="/tratamente"
   style={styles.historyButton}
 >
