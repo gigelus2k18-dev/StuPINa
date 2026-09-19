@@ -532,6 +532,7 @@ export default function Home() {
 >
   🐝 Roiuri / Nuclee
 </Link>
+    </section>
 
       <section style={styles.batchSection}>
         <div style={styles.batchHeader}>
