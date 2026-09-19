@@ -27,13 +27,15 @@ export default function Home() {
   async function getData() {
     setLoading(true);
 
-    const { data: stupiData, error: stupiError } =
-      await supabase
-        .from("stupi")
-        .select("*")
-        .order("numar_stup", {
-          ascending: true,
-        });
+    const {
+      data: stupiData,
+      error: stupiError,
+    } = await supabase
+      .from("stupi")
+      .select("*")
+      .order("numar_stup", {
+        ascending: true,
+      });
 
     if (stupiError) {
       console.error(stupiError);
@@ -68,72 +70,81 @@ export default function Home() {
   }
 
   async function applyTreatmentToAll() {
-  if (!treatment.tip || !treatment.data) {
-    alert("Completează tratamentul și data.");
-    return;
-  }
+    if (!treatment.tip || !treatment.data) {
+      alert("Completează tratamentul și data.");
+      return;
+    }
 
-  const confirmare = window.confirm(
-    "Ești sigur că vrei să adaugi tratamentul \"" +
-      treatment.tip +
-      "\" pentru toți cei " +
-      stupi.length +
-      " stupi?"
-  );
-
-  if (!confirmare) return;
-
-  setSavingTreatment(true);
-
-  const records = stupi.map((stup) => ({
-    stup_id: stup.id,
-    tip: treatment.tip,
-    data_tratament: treatment.data,
-    detalii: treatment.detalii || null,
-  }));
-
-  const { data, error } = await supabase
-    .from("tratamente")
-    .insert(records)
-    .select();
-
-  if (error) {
-    console.error(error);
-
-    alert(
-      "Eroare la adăugarea tratamentului: " +
-        error.message
-    );
-  } else {
-    setTratamente((prev) => [
-      ...(data || []),
-      ...prev,
-    ]);
-
-    alert(
-      "Tratamentul a fost adăugat pentru toți cei " +
+    const confirmare = window.confirm(
+      "Ești sigur că vrei să adaugi tratamentul \"" +
+        treatment.tip +
+        "\" pentru toți cei " +
         stupi.length +
-        " stupi!"
+        " stupi?"
     );
 
-    setShowTreatment(false);
+    if (!confirmare) return;
 
-    setTreatment({
-      tip: "Amitraz",
-      data: new Date()
-        .toISOString()
-        .split("T")[0],
-      detalii: "",
-    });
+    setSavingTreatment(true);
+
+    const records = stupi.map((stup) => ({
+      stup_id: stup.id,
+      tip: treatment.tip,
+      data_tratament: treatment.data,
+      detalii: treatment.detalii || null,
+    }));
+
+    const {
+      data,
+      error,
+    } = await supabase
+      .from("tratamente")
+      .insert(records)
+      .select();
+
+    if (error) {
+      console.error(error);
+
+      alert(
+        "Eroare la adăugarea tratamentului: " +
+          error.message
+      );
+    } else {
+      setTratamente((prev) => [
+        ...(data || []),
+        ...prev,
+      ]);
+
+      alert(
+        "Tratamentul a fost adăugat pentru toți cei " +
+          stupi.length +
+          " stupi!"
+      );
+
+      setShowTreatment(false);
+
+      setTreatment({
+        tip: "Amitraz",
+        data: new Date()
+          .toISOString()
+          .split("T")[0],
+        detalii: "",
+      });
+    }
+
+    setSavingTreatment(false);
   }
 
-  setSavingTreatment(false);
-}
   async function deleteTreatmentBatch(batch) {
     const confirmare = window.confirm(
-      `Sigur vrei să ștergi "${batch.tip}" din ${batch.data_tratament} pentru cei ${batch.count} stupi?\n\nDetalii: ${
-        batch.detalii || "Fără detalii"
-      }`
+      "Sigur vrei să ștergi tratamentul \"" +
+        batch.tip +
+        "\" din " +
+        batch.data_tratament +
+        " pentru cei " +
+        batch.count +
+        " stupi?\n\nDetalii: " +
+        (batch.detalii || "Fără detalii")
     );
 
     if (!confirmare) return;
@@ -144,7 +155,10 @@ export default function Home() {
       .from("tratamente")
       .delete()
       .eq("tip", batch.tip)
-      .eq("data_tratament", batch.data_tratament);
+      .eq(
+        "data_tratament",
+        batch.data_tratament
+      );
 
     if (batch.detalii) {
       query = query.eq(
@@ -152,13 +166,17 @@ export default function Home() {
         batch.detalii
       );
     } else {
-      query = query.is("detalii", null);
+      query = query.is(
+        "detalii",
+        null
+      );
     }
 
     const { error } = await query;
 
     if (error) {
       console.error(error);
+
       alert(
         "Eroare la ștergere: " +
           error.message
@@ -186,7 +204,9 @@ export default function Home() {
       );
 
       alert(
-        `Au fost șterse ${batch.count} înregistrări.`
+        "Au fost șterse " +
+          batch.count +
+          " înregistrări."
       );
     }
 
@@ -238,23 +258,15 @@ export default function Home() {
   const faraMatca =
     stupi.length - cuMatca;
 
-  /*
-   * Grupăm tratamentele după:
-   * - tip
-   * - dată
-   * - detalii
-   *
-   * Astfel două tratamente cu aceeași dată,
-   * dar detalii diferite, rămân separate.
-   */
-
   const batchesMap = {};
 
   tratamente.forEach((tratament) => {
     const key =
-      `${tratament.tip}|${tratament.data_tratament}|${
-        tratament.detalii || ""
-      }`;
+      tratament.tip +
+      "|" +
+      tratament.data_tratament +
+      "|" +
+      (tratament.detalii || "");
 
     if (!batchesMap[key]) {
       batchesMap[key] = {
@@ -276,6 +288,7 @@ export default function Home() {
 
   return (
     <main style={styles.page}>
+
       {/* HEADER */}
 
       <header style={styles.header}>
@@ -297,6 +310,7 @@ export default function Home() {
       {/* PANOU STATISTICI */}
 
       <section style={styles.statsGrid}>
+
         <StatCard
           icon="🐝"
           title="Total stupi"
@@ -318,7 +332,10 @@ export default function Home() {
         <StatCard
           icon="🍯"
           title="Miere"
-          value={`${totalMiere.toFixed(1)} kg`}
+          value={
+            totalMiere.toFixed(1) +
+            " kg"
+          }
         />
 
         <StatCard
@@ -338,11 +355,13 @@ export default function Home() {
           title="Rame cu miere"
           value={totalRameMiere}
         />
+
       </section>
 
       {/* BUTOANE */}
 
       <section style={styles.actionsSection}>
+
         <Link
           href="/statistici"
           style={styles.statsButton}
@@ -358,41 +377,51 @@ export default function Home() {
         >
           💊 Tratamente pentru toți stupii
         </button>
+
       </section>
 
       {/* TRANȘE DE TRATAMENTE */}
 
       <section style={styles.batchSection}>
-        <div style={styles.batchHeader}>
-          <div>
-            <h2 style={styles.batchTitle}>
-              📜 Tratamente înregistrate
-            </h2>
 
-            <p style={styles.batchSubtitle}>
-              De aici poți șterge o tranșă
-              aplicată mai multor stupi.
-            </p>
-          </div>
+        <div style={styles.batchHeader}>
+
+          <h2 style={styles.batchTitle}>
+            📜 Tratamente înregistrate
+          </h2>
+
+          <p style={styles.batchSubtitle}>
+            De aici poți șterge o tranșă
+            aplicată mai multor stupi.
+          </p>
+
         </div>
 
         {treatmentBatches.length === 0 ? (
+
           <div style={styles.emptyBatches}>
-            Nu există tratamente înregistrate.
+            Nu există tratamente
+            înregistrate.
           </div>
+
         ) : (
+
           <div style={styles.batchList}>
+
             {treatmentBatches.map(
               (batch) => (
+
                 <div
                   key={batch.key}
                   style={styles.batchItem}
                 >
+
                   <div
                     style={
                       styles.batchContent
                     }
                   >
+
                     <div
                       style={
                         styles.batchTreatment
@@ -402,11 +431,13 @@ export default function Home() {
                     </div>
 
                     <div
-                      style={styles.batchInfo}
+                      style={
+                        styles.batchInfo
+                      }
                     >
                       📅{" "}
                       {batch.data_tratament}
-                      {"  •  "}
+                      {" • "}
                       🐝 {batch.count}{" "}
                       {batch.count === 1
                         ? "stup"
@@ -423,6 +454,7 @@ export default function Home() {
                         {batch.detalii}
                       </div>
                     )}
+
                   </div>
 
                   <button
@@ -444,19 +476,27 @@ export default function Home() {
                       ? "Se șterge..."
                       : "🗑️ Șterge tranșa"}
                   </button>
+
                 </div>
+
               )
             )}
+
           </div>
+
         )}
+
       </section>
 
       {/* LISTA STUPILOR */}
 
       <div style={styles.tableWrapper}>
+
         <table style={styles.table}>
+
           <thead>
             <tr>
+
               <th style={styles.th}>
                 Nr. stup
               </th>
@@ -492,25 +532,36 @@ export default function Home() {
               <th style={styles.th}>
                 Observații
               </th>
+
             </tr>
           </thead>
 
           <tbody>
+
             {stupi.map((stup) => (
+
               <tr
                 key={stup.id}
                 style={styles.row}
               >
+
                 <td
-                  style={styles.tdNumber}
+                  style={
+                    styles.tdNumber
+                  }
                 >
+
                   <Link
-                    href={`/stupi/${stup.numar_stup}`}
+                    href={
+                      "/stupi/" +
+                      stup.numar_stup
+                    }
                     style={styles.stupLink}
                   >
                     Stupul{" "}
                     {stup.numar_stup}
                   </Link>
+
                 </td>
 
                 <td style={styles.td}>
@@ -531,7 +582,8 @@ export default function Home() {
 
                 <td style={styles.td}>
                   {stup.miere_kg
-                    ? `${stup.miere_kg} kg`
+                    ? stup.miere_kg +
+                      " kg"
                     : "—"}
                 </td>
 
@@ -546,19 +598,29 @@ export default function Home() {
                 <td style={styles.td}>
                   {stup.observatii || "—"}
                 </td>
+
               </tr>
+
             ))}
+
           </tbody>
+
         </table>
+
       </div>
 
       {/* FEREASTRA TRATAMENT */}
 
       {showTreatment && (
+
         <div style={styles.overlay}>
+
           <div style={styles.modal}>
+
             <button
-              style={styles.closeButton}
+              style={
+                styles.closeButton
+              }
               onClick={() =>
                 setShowTreatment(false)
               }
@@ -566,7 +628,11 @@ export default function Home() {
               ×
             </button>
 
-            <h2 style={styles.modalTitle}>
+            <h2
+              style={
+                styles.modalTitle
+              }
+            >
               💊 Tratament pentru toți
               stupii
             </h2>
@@ -576,12 +642,14 @@ export default function Home() {
                 styles.modalDescription
               }
             >
-              Tratamentul va fi adăugat în
-              istoricul tuturor celor{" "}
-              {stupi.length} stupi.
+              Tratamentul va fi adăugat
+              în istoricul tuturor
+              celor {stupi.length} stupi.
             </p>
 
-            <label style={styles.label}>
+            <label
+              style={styles.label}
+            >
               Tratament
             </label>
 
@@ -595,6 +663,7 @@ export default function Home() {
                 })
               }
             >
+
               <option value="Amitraz">
                 Amitraz
               </option>
@@ -610,9 +679,12 @@ export default function Home() {
               <option value="Alte tratament">
                 Alte tratament
               </option>
+
             </select>
 
-            <label style={styles.label}>
+            <label
+              style={styles.label}
+            >
               Data tratamentului
             </label>
 
@@ -628,7 +700,9 @@ export default function Home() {
               }
             />
 
-            <label style={styles.label}>
+            <label
+              style={styles.label}
+            >
               Detalii
             </label>
 
@@ -645,19 +719,29 @@ export default function Home() {
             />
 
             <button
-              style={styles.confirmButton}
+              style={
+                styles.confirmButton
+              }
               onClick={
                 applyTreatmentToAll
               }
-              disabled={savingTreatment}
+              disabled={
+                savingTreatment
+              }
             >
               {savingTreatment
                 ? "Se adaugă..."
-                : `💾 Aplică la toți cei ${stupi.length} stupi`}
+                : "💾 Aplică la toți cei " +
+                  stupi.length +
+                  " stupi"}
             </button>
+
           </div>
+
         </div>
+
       )}
+
     </main>
   );
 }
@@ -669,11 +753,13 @@ function StatCard({
 }) {
   return (
     <div style={styles.statCard}>
+
       <div style={styles.statIcon}>
         {icon}
       </div>
 
       <div>
+
         <div style={styles.statTitle}>
           {title}
         </div>
@@ -681,22 +767,27 @@ function StatCard({
         <div style={styles.statValue}>
           {value}
         </div>
+
       </div>
+
     </div>
   );
 }
 
 const styles = {
+
   page: {
     minHeight: "100vh",
     padding: "30px",
     background: "#f4f5f2",
-    fontFamily: "Arial, sans-serif",
+    fontFamily:
+      "Arial, sans-serif",
   },
 
   header: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     alignItems: "center",
     marginBottom: "25px",
   },
@@ -814,7 +905,8 @@ const styles = {
 
   batchItem: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     alignItems: "center",
     gap: "15px",
     padding: "15px",
@@ -872,25 +964,29 @@ const styles = {
 
   table: {
     width: "100%",
-    borderCollapse: "collapse",
+    borderCollapse:
+      "collapse",
     minWidth: "1100px",
   },
 
   th: {
     padding: "14px",
     textAlign: "left",
-    borderBottom: "2px solid #ddd",
+    borderBottom:
+      "2px solid #ddd",
     background: "#fafafa",
   },
 
   td: {
     padding: "12px 14px",
-    borderBottom: "1px solid #eee",
+    borderBottom:
+      "1px solid #eee",
   },
 
   tdNumber: {
     padding: "12px 14px",
-    borderBottom: "1px solid #eee",
+    borderBottom:
+      "1px solid #eee",
     fontWeight: "bold",
   },
 
@@ -900,21 +996,25 @@ const styles = {
     borderRadius: "8px",
     background: "#222",
     color: "#fff",
-    textDecoration: "none",
+    textDecoration:
+      "none",
     fontWeight: "bold",
   },
 
   row: {
-    transition: "background 0.2s",
+    transition:
+      "background 0.2s",
   },
 
   overlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(0,0,0,0.5)",
+    background:
+      "rgba(0,0,0,0.5)",
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent:
+      "center",
     padding: "20px",
     zIndex: 1000,
   },
@@ -935,7 +1035,8 @@ const styles = {
     top: "12px",
     right: "15px",
     border: "none",
-    background: "transparent",
+    background:
+      "transparent",
     fontSize: "30px",
     cursor: "pointer",
     color: "#777",
@@ -961,19 +1062,23 @@ const styles = {
 
   input: {
     width: "100%",
-    boxSizing: "border-box",
+    boxSizing:
+      "border-box",
     padding: "11px",
-    border: "1px solid #ccc",
+    border:
+      "1px solid #ccc",
     borderRadius: "8px",
     fontSize: "15px",
   },
 
   textarea: {
     width: "100%",
-    boxSizing: "border-box",
+    boxSizing:
+      "border-box",
     minHeight: "100px",
     padding: "11px",
-    border: "1px solid #ccc",
+    border:
+      "1px solid #ccc",
     borderRadius: "8px",
     fontSize: "15px",
     resize: "vertical",
