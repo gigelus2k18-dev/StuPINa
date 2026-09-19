@@ -1,4 +1,4 @@
-
+```jsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -16,16 +16,19 @@ export default function Home() {
   const [showTreatment, setShowTreatment] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
   const [showAddStup, setShowAddStup] = useState(false);
+  const [showAddMultiple, setShowAddMultiple] = useState(false);
 
   const [selectedFamilie, setSelectedFamilie] = useState(null);
 
   const [savingTreatment, setSavingTreatment] = useState(false);
   const [savingVerification, setSavingVerification] = useState(false);
   const [savingStup, setSavingStup] = useState(false);
+  const [savingMultiple, setSavingMultiple] = useState(false);
   const [deletingBatch, setDeletingBatch] = useState(null);
   const [deletingStup, setDeletingStup] = useState(null);
 
   const [newStupNumber, setNewStupNumber] = useState("");
+  const [multipleStupiCount, setMultipleStupiCount] = useState("");
 
   const [treatment, setTreatment] = useState({
     tip: "Amitraz",
@@ -438,6 +441,114 @@ export default function Home() {
     setSavingStup(false);
   }
 
+  async function addMultipleStupi() {
+    const count = Number(
+      multipleStupiCount
+    );
+
+    if (
+      !Number.isInteger(count) ||
+      count <= 0
+    ) {
+      alert(
+        "Introdu un număr întreg mai mare decât 0."
+      );
+      return;
+    }
+
+    if (count > 1000) {
+      alert(
+        "Poți adăuga maximum 1000 de stupi odată."
+      );
+      return;
+    }
+
+    const maxNumber = stupi.reduce(
+      (max, stup) =>
+        Math.max(
+          max,
+          Number(stup.numar_stup) || 0
+        ),
+      0
+    );
+
+    const primulNumar = maxNumber + 1;
+    const ultimulNumar =
+      maxNumber + count;
+
+    const confirmare = window.confirm(
+      "Vrei să adaugi " +
+        count +
+        " familii noi?\n\n" +
+        "Vor fi creați stupii " +
+        primulNumar +
+        " – " +
+        ultimulNumar +
+        "."
+    );
+
+    if (!confirmare) return;
+
+    setSavingMultiple(true);
+
+    const stupiNoi = Array.from(
+      { length: count },
+      (_, index) => ({
+        numar_stup:
+          primulNumar + index,
+        matca: null,
+        are_matca: null,
+        an_matca: null,
+        rame: null,
+        rame_puiet: null,
+        rame_miere: null,
+        rame_polen: null,
+        miere_kg: 0,
+        status: "Activ",
+        observatii: null,
+      })
+    );
+
+    const { data, error } = await supabase
+      .from("stupi")
+      .insert(stupiNoi)
+      .select();
+
+    if (error) {
+      console.error(error);
+
+      alert(
+        "Eroare la adăugarea stupilor:\n\n" +
+          error.message
+      );
+
+      setSavingMultiple(false);
+      return;
+    }
+
+    setStupi((prev) =>
+      [...prev, ...(data || [])].sort(
+        (a, b) =>
+          Number(a.numar_stup) -
+          Number(b.numar_stup)
+      )
+    );
+
+    setMultipleStupiCount("");
+    setShowAddMultiple(false);
+    setSavingMultiple(false);
+
+    alert(
+      "Au fost adăugate cu succes " +
+        count +
+        " familii noi!\n\n" +
+        "Stupii " +
+        primulNumar +
+        " – " +
+        ultimulNumar
+    );
+  }
+
   async function deleteStup(stup) {
     if (!stup || !stup.id) return;
 
@@ -454,7 +565,6 @@ export default function Home() {
 
     setDeletingStup(stup.id);
 
-    // Ștergem tratamentele asociate stupului
     const { error: tratamenteError } = await supabase
       .from("tratamente")
       .delete()
@@ -472,7 +582,6 @@ export default function Home() {
       return;
     }
 
-    // Ștergem verificările asociate stupului
     const { error: verificariError } = await supabase
       .from("verificari")
       .delete()
@@ -490,7 +599,6 @@ export default function Home() {
       return;
     }
 
-    // Ștergem stupul
     const { error: stupError } = await supabase
       .from("stupi")
       .delete()
@@ -508,7 +616,6 @@ export default function Home() {
       return;
     }
 
-    // Actualizăm interfața
     setStupi((prev) =>
       prev.filter(
         (item) => item.id !== stup.id
@@ -1182,6 +1289,29 @@ export default function Home() {
   const treatmentBatches =
     Object.values(batchesMap);
 
+  const maxStupNumber =
+    stupi.reduce(
+      (max, stup) =>
+        Math.max(
+          max,
+          Number(stup.numar_stup) || 0
+        ),
+      0
+    );
+
+  const nextStupNumber =
+    maxStupNumber + 1;
+
+  const multipleCountNumber =
+    Number(multipleStupiCount);
+
+  const multipleLastNumber =
+    multipleCountNumber > 0
+      ? nextStupNumber +
+        multipleCountNumber -
+        1
+      : nextStupNumber;
+
   return (
     <main style={styles.page}>
       <header style={styles.header}>
@@ -1527,6 +1657,17 @@ export default function Home() {
           }
         >
           ➕ Adaugă stup
+        </button>
+
+        <button
+          style={
+            styles.addMultipleButton
+          }
+          onClick={() =>
+            setShowAddMultiple(true)
+          }
+        >
+          ➕ Adaugă mai mulți stupi
         </button>
 
         <Link
@@ -2229,6 +2370,134 @@ export default function Home() {
         </div>
       )}
 
+      {showAddMultiple && (
+        <div style={styles.overlay}>
+          <div
+            style={styles.smallModal}
+          >
+            <button
+              style={
+                styles.closeButton
+              }
+              onClick={() => {
+                setShowAddMultiple(false);
+                setMultipleStupiCount("");
+              }}
+            >
+              ×
+            </button>
+
+            <h2
+              style={styles.modalTitle}
+            >
+              ➕ Adaugă mai mulți stupi
+            </h2>
+
+            <p
+              style={
+                styles.modalDescription
+              }
+            >
+              Spune câte familii noi vrei să
+              adaugi. Aplicația va numerota
+              automat stupii.
+            </p>
+
+            <div
+              style={
+                styles.nextNumberBox
+              }
+            >
+              <div
+                style={
+                  styles.nextNumberLabel
+                }
+              >
+                Următorul număr disponibil
+              </div>
+
+              <div
+                style={
+                  styles.nextNumberValue
+                }
+              >
+                Stupul {nextStupNumber}
+              </div>
+            </div>
+
+            <label style={styles.label}>
+              Câte familii vrei să adaugi?
+            </label>
+
+            <input
+              style={styles.input}
+              type="number"
+              min="1"
+              max="1000"
+              value={multipleStupiCount}
+              placeholder="Ex: 20"
+              onChange={(e) =>
+                setMultipleStupiCount(
+                  e.target.value
+                )
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  addMultipleStupi();
+                }
+              }}
+              autoFocus
+            />
+
+            {multipleCountNumber > 0 && (
+              <div
+                style={
+                  styles.previewBox
+                }
+              >
+                Se vor adăuga:
+
+                <strong>
+                  {" "}
+                  {multipleCountNumber}{" "}
+                  {multipleCountNumber === 1
+                    ? "familie"
+                    : "familii"}
+                </strong>
+
+                <br />
+
+                Stupii{" "}
+                <strong>
+                  {nextStupNumber}
+                </strong>{" "}
+                –{" "}
+                <strong>
+                  {multipleLastNumber}
+                </strong>
+              </div>
+            )}
+
+            <button
+              style={
+                styles.confirmButton
+              }
+              onClick={
+                addMultipleStupi
+              }
+              disabled={
+                savingMultiple ||
+                !multipleStupiCount
+              }
+            >
+              {savingMultiple
+                ? "Se adaugă..."
+                : "🐝 Adaugă familiile"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {showVerification && (
         <div style={styles.overlay}>
           <div style={styles.modal}>
@@ -2842,6 +3111,17 @@ const styles = {
     fontSize: "14px",
   },
 
+  addMultipleButton: {
+    padding: "12px 18px",
+    background: "#1976d2",
+    color: "#fff",
+    border: "none",
+    borderRadius: "9px",
+    cursor: "pointer",
+    fontWeight: "bold",
+    fontSize: "14px",
+  },
+
   statsButton: {
     padding: "12px 18px",
     background: "#222",
@@ -3347,8 +3627,40 @@ const styles = {
     cursor: "pointer",
   },
 
+  nextNumberBox: {
+    background: "#eef6ff",
+    border: "1px solid #bfdbfe",
+    borderRadius: "10px",
+    padding: "14px",
+    textAlign: "center",
+    marginBottom: "18px",
+  },
+
+  nextNumberLabel: {
+    color: "#64748b",
+    fontSize: "13px",
+    marginBottom: "4px",
+  },
+
+  nextNumberValue: {
+    fontSize: "22px",
+    fontWeight: "bold",
+    color: "#1976d2",
+  },
+
+  previewBox: {
+    marginTop: "12px",
+    padding: "12px",
+    background: "#f0fdf4",
+    border: "1px solid #bbf7d0",
+    borderRadius: "9px",
+    color: "#166534",
+    fontSize: "14px",
+    lineHeight: "1.6",
+  },
+
   row: {
     transition: "background 0.2s",
   },
 };
-
+```
