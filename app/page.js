@@ -1,4 +1,4 @@
-```jsx
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -3351,4 +3351,4 @@ const styles = {
     transition: "background 0.2s",
   },
 };
-```
+
