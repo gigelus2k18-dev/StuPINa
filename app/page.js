@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -44,11 +43,10 @@ export default function Home() {
   async function getData() {
     setLoading(true);
 
-    const { data: stupiData, error: stupiError } =
-      await supabase
-        .from("stupi")
-        .select("*")
-        .order("numar_stup", { ascending: true });
+    const { data: stupiData, error: stupiError } = await supabase
+      .from("stupi")
+      .select("*")
+      .order("numar_stup", { ascending: true });
 
     if (stupiError) {
       console.error(stupiError);
@@ -176,9 +174,9 @@ export default function Home() {
     }
 
     const confirmare = window.confirm(
-      "Ești sigur că vrei să adaugi tratamentul \"" +
+      'Ești sigur că vrei să adaugi tratamentul "' +
         treatment.tip +
-        "\" pentru toți cei " +
+        '" pentru toți cei ' +
         stupi.length +
         " stupi?"
     );
@@ -502,42 +500,35 @@ export default function Home() {
         />
       </section>
 
-     <section style={styles.actionsSection}>
-  <Link
-    href="/statistici"
-    style={styles.statsButton}
-  >
-    📊 Statistici complete
-  </Link>
+      <section style={styles.actionsSection}>
+        <Link
+          href="/statistici"
+          style={styles.statsButton}
+        >
+          📊 Statistici complete
+        </Link>
 
-  <button
-    style={styles.treatmentButton}
-    onClick={() => setShowTreatment(true)}
-  >
-    💊 Tratamente pentru toți stupii
-  </button>
+        <button
+          style={styles.treatmentButton}
+          onClick={() => setShowTreatment(true)}
+        >
+          💊 Tratamente pentru toți stupii
+        </button>
 
-  <Link
-    href="/tratamente"
-    style={styles.historyButton}
-  >
-    📜 Istoric tratamente
-  </Link>
+        <Link
+          href="/tratamente"
+          style={styles.historyButton}
+        >
+          📜 Istoric tratamente
+        </Link>
 
-  <Link
-    href="/roiuri"
-    style={styles.historyButton}
-  >
-    🐝 Roiuri / Nuclee
-  </Link>
-</section>
-            <Link
-  href="/roiuri"
-  style={styles.historyButton}
->
-  🐝 Roiuri / Nuclee
-</Link>
-    </section>
+        <Link
+          href="/roiuri"
+          style={styles.historyButton}
+        >
+          🐝 Roiuri / Nuclee
+        </Link>
+      </section>
 
       <section style={styles.batchSection}>
         <div style={styles.batchHeader}>
@@ -1458,4 +1449,3 @@ const styles = {
     transition: "background 0.2s",
   },
 };
-
