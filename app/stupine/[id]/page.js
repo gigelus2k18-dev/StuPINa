@@ -21,7 +21,11 @@ export default function StupinaPage() {
 
   const [showAddStup, setShowAddStup] = useState(false);
   const [showAddRoi, setShowAddRoi] = useState(false);
+  const [showBulkAdd, setShowBulkAdd] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
+
+  const [selectedStupi, setSelectedStupi] = useState([]);
+  const [selectedRoiuri, setSelectedRoiuri] = useState([]);
 
   const [selectedFamilie, setSelectedFamilie] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -47,7 +51,10 @@ export default function StupinaPage() {
   async function getData() {
     setLoading(true);
 
+    // =========================
     // STUPINA
+    // =========================
+
     const {
       data: stupinaData,
       error: stupinaError,
@@ -66,7 +73,10 @@ export default function StupinaPage() {
 
     setStupina(stupinaData);
 
+    // =========================
     // STUPI DIN ACEASTĂ STUPINĂ
+    // =========================
+
     const {
       data: stupiData,
       error: stupiError,
@@ -83,7 +93,10 @@ export default function StupinaPage() {
       setStupi(stupiData || []);
     }
 
+    // =========================
     // ROIURI DIN ACEASTĂ STUPINĂ
+    // =========================
+
     const {
       data: roiuriData,
       error: roiuriError,
@@ -106,7 +119,10 @@ export default function StupinaPage() {
       setRoiuri(roiuriData || []);
     }
 
-    // TOȚI STUPII - pentru alegerea celor existenți
+    // =========================
+    // TOȚI STUPII
+    // =========================
+
     const {
       data: allStupi,
       error: allStupiError,
@@ -121,7 +137,10 @@ export default function StupinaPage() {
       setAvailableStupi(allStupi || []);
     }
 
-    // TOATE ROIURILE - pentru alegerea celor existente
+    // =========================
+    // TOATE ROIURILE
+    // =========================
+
     const {
       data: allRoiuri,
       error: allRoiuriError,
@@ -169,7 +188,8 @@ export default function StupinaPage() {
 
     setSaving(true);
 
-    const esteStup = selectedFamilie.tipFamilie === "Stup";
+    const esteStup =
+      selectedFamilie.tipFamilie === "Stup";
 
     const verificationData = {
       data_verificare: verification.data_verificare,
@@ -281,9 +301,7 @@ export default function StupinaPage() {
 
     if (!confirmare) return;
 
-    const {
-      error,
-    } = await supabase
+    const { error } = await supabase
       .from("stupi")
       .update({
         stupina_id: id,
@@ -310,40 +328,6 @@ export default function StupinaPage() {
   }
 
   // =========================
-  // SCOATE STUP
-  // =========================
-
-  async function removeStup(stup) {
-    const confirmare = window.confirm(
-      `Scoți stupul nr. ${stup.numar_stup} din stupina ${stupina?.nume}?`
-    );
-
-    if (!confirmare) return;
-
-    const {
-      error,
-    } = await supabase
-      .from("stupi")
-      .update({
-        stupina_id: null,
-      })
-      .eq("id", stup.id);
-
-    if (error) {
-      console.error("EROARE SCOATERE STUP:", error);
-
-      alert(
-        "Nu am putut scoate stupul:\n\n" +
-          error.message
-      );
-
-      return;
-    }
-
-    getData();
-  }
-
-  // =========================
   // ADAUGĂ ROI EXISTENT
   // =========================
 
@@ -354,9 +338,7 @@ export default function StupinaPage() {
 
     if (!confirmare) return;
 
-    const {
-      error,
-    } = await supabase
+    const { error } = await supabase
       .from("roiuri")
       .update({
         stupina_id: id,
@@ -381,6 +363,205 @@ export default function StupinaPage() {
   }
 
   // =========================
+  // ADAUGĂ ÎN MASĂ
+  // =========================
+
+  async function addBulkToStupina() {
+    const totalSelectate =
+      selectedStupi.length +
+      selectedRoiuri.length;
+
+    if (totalSelectate === 0) {
+      alert(
+        "Selectează cel puțin un stup, roi sau nucleu."
+      );
+      return;
+    }
+
+    const confirmare = window.confirm(
+      `Vrei să adaugi ${totalSelectate} elemente în stupina "${stupina?.nume}"?\n\n` +
+        `Stupi: ${selectedStupi.length}\n` +
+        `Roiuri/Nuclee: ${selectedRoiuri.length}\n\n` +
+        `Nu se vor crea elemente noi. Se vor asocia doar cele existente.`
+    );
+
+    if (!confirmare) return;
+
+    setSaving(true);
+
+    // =========================
+    // STUPI
+    // =========================
+
+    if (selectedStupi.length > 0) {
+      const { error: stupiError } = await supabase
+        .from("stupi")
+        .update({
+          stupina_id: id,
+        })
+        .in(
+          "id",
+          selectedStupi
+        );
+
+      if (stupiError) {
+        console.error(
+          "EROARE ADAUGARE STUPI ÎN MASĂ:",
+          stupiError
+        );
+
+        alert(
+          "A apărut o eroare la adăugarea stupilor:\n\n" +
+            stupiError.message
+        );
+
+        setSaving(false);
+        return;
+      }
+    }
+
+    // =========================
+    // ROIURI
+    // =========================
+
+    if (selectedRoiuri.length > 0) {
+      const { error: roiuriError } =
+        await supabase
+          .from("roiuri")
+          .update({
+            stupina_id: id,
+          })
+          .in(
+            "id",
+            selectedRoiuri
+          );
+
+      if (roiuriError) {
+        console.error(
+          "EROARE ADAUGARE ROIURI ÎN MASĂ:",
+          roiuriError
+        );
+
+        alert(
+          "Stupii au fost adăugați, dar a apărut o eroare la roiuri/nuclee:\n\n" +
+            roiuriError.message
+        );
+
+        setSaving(false);
+        return;
+      }
+    }
+
+    alert(
+      `${totalSelectate} elemente au fost adăugate în stupina "${stupina?.nume}".`
+    );
+
+    setSelectedStupi([]);
+    setSelectedRoiuri([]);
+    setShowBulkAdd(false);
+    setSaving(false);
+
+    getData();
+  }
+
+  // =========================
+  // SELECTARE STUP
+  // =========================
+
+  function toggleStupSelection(stupId) {
+    setSelectedStupi((prev) =>
+      prev.includes(stupId)
+        ? prev.filter((id) => id !== stupId)
+        : [...prev, stupId]
+    );
+  }
+
+  // =========================
+  // SELECTARE ROI
+  // =========================
+
+  function toggleRoiSelection(roiId) {
+    setSelectedRoiuri((prev) =>
+      prev.includes(roiId)
+        ? prev.filter((id) => id !== roiId)
+        : [...prev, roiId]
+    );
+  }
+
+  // =========================
+  // SELECTEAZĂ TOȚI STUPII
+  // =========================
+
+  function selectAllStupi() {
+    if (
+      selectedStupi.length ===
+      stupiDisponibili.length
+    ) {
+      setSelectedStupi([]);
+    } else {
+      setSelectedStupi(
+        stupiDisponibili.map(
+          (stup) => stup.id
+        )
+      );
+    }
+  }
+
+  // =========================
+  // SELECTEAZĂ TOATE ROIURILE
+  // =========================
+
+  function selectAllRoiuri() {
+    if (
+      selectedRoiuri.length ===
+      roiuriDisponibile.length
+    ) {
+      setSelectedRoiuri([]);
+    } else {
+      setSelectedRoiuri(
+        roiuriDisponibile.map(
+          (roi) => roi.id
+        )
+      );
+    }
+  }
+
+  // =========================
+  // SCOATE STUP
+  // =========================
+
+  async function removeStup(stup) {
+    const confirmare = window.confirm(
+      `Scoți stupul nr. ${stup.numar_stup} din stupina ${stupina?.nume}?`
+    );
+
+    if (!confirmare) return;
+
+    const { error } = await supabase
+      .from("stupi")
+      .update({
+        stupina_id: null,
+      })
+      .eq("id", stup.id);
+
+    if (error) {
+      console.error(
+        "EROARE SCOATERE STUP:",
+        error
+      );
+
+      alert(
+        "Nu am putut scoate stupul:\n\n" +
+          error.message
+      );
+
+      return;
+    }
+
+    getData();
+  }
+
+  // =========================
   // SCOATE ROI
   // =========================
 
@@ -391,9 +572,7 @@ export default function StupinaPage() {
 
     if (!confirmare) return;
 
-    const {
-      error,
-    } = await supabase
+    const { error } = await supabase
       .from("roiuri")
       .update({
         stupina_id: null,
@@ -401,7 +580,10 @@ export default function StupinaPage() {
       .eq("id", roi.id);
 
     if (error) {
-      console.error("EROARE SCOATERE ROI:", error);
+      console.error(
+        "EROARE SCOATERE ROI:",
+        error
+      );
 
       alert(
         "Nu am putut scoate roiul:\n\n" +
@@ -418,16 +600,19 @@ export default function StupinaPage() {
   // STATUS STUP
   // =========================
 
-  async function updateStupStatus(stupId, status) {
-    const {
-      error,
-    } = await supabase
+  async function updateStupStatus(
+    stupId,
+    status
+  ) {
+    const { error } = await supabase
       .from("stupi")
       .update({ status })
       .eq("id", stupId);
 
     if (error) {
-      alert("Nu am putut modifica statusul.");
+      alert(
+        "Nu am putut modifica statusul."
+      );
       return;
     }
 
@@ -444,16 +629,19 @@ export default function StupinaPage() {
   // STATUS ROI
   // =========================
 
-  async function updateRoiStatus(roiId, status) {
-    const {
-      error,
-    } = await supabase
+  async function updateRoiStatus(
+    roiId,
+    status
+  ) {
+    const { error } = await supabase
       .from("roiuri")
       .update({ status })
       .eq("id", roiId);
 
     if (error) {
-      alert("Nu am putut modifica statusul.");
+      alert(
+        "Nu am putut modifica statusul."
+      );
       return;
     }
 
@@ -510,67 +698,93 @@ export default function StupinaPage() {
     })),
   ];
 
-  const filteredFamilii = familiiTabel.filter(
-    (familie) =>
+  const filteredFamilii =
+    familiiTabel.filter((familie) =>
       String(familie.numar || "")
         .toLowerCase()
         .includes(search.toLowerCase())
-  );
+    );
 
   // =========================
   // STATISTICI
   // =========================
 
-  const totalFamilii = familiiTabel.length;
+  const totalFamilii =
+    familiiTabel.length;
 
-  const totalMiere = familiiTabel.reduce(
-    (sum, familie) =>
-      sum + Number(familie.miere_kg || 0),
-    0
-  );
+  const totalMiere =
+    familiiTabel.reduce(
+      (sum, familie) =>
+        sum +
+        Number(
+          familie.miere_kg || 0
+        ),
+      0
+    );
 
-  const totalPuiet = familiiTabel.reduce(
-    (sum, familie) =>
-      sum + Number(familie.rame_puiet || 0),
-    0
-  );
+  const totalPuiet =
+    familiiTabel.reduce(
+      (sum, familie) =>
+        sum +
+        Number(
+          familie.rame_puiet || 0
+        ),
+      0
+    );
 
-  const totalMiereRame = familiiTabel.reduce(
-    (sum, familie) =>
-      sum + Number(familie.rame_miere || 0),
-    0
-  );
+  const totalMiereRame =
+    familiiTabel.reduce(
+      (sum, familie) =>
+        sum +
+        Number(
+          familie.rame_miere || 0
+        ),
+      0
+    );
 
-  const totalPolen = familiiTabel.reduce(
-    (sum, familie) =>
-      sum + Number(familie.rame_polen || 0),
-    0
-  );
+  const totalPolen =
+    familiiTabel.reduce(
+      (sum, familie) =>
+        sum +
+        Number(
+          familie.rame_polen || 0
+        ),
+      0
+    );
 
-  const cuMatca = familiiTabel.filter(
-    (familie) =>
-      familie.are_matca === true ||
-      familie.matca === "Da"
-  ).length;
+  const cuMatca =
+    familiiTabel.filter(
+      (familie) =>
+        familie.are_matca === true ||
+        familie.matca === "Da"
+    ).length;
 
   const faraMatca =
     totalFamilii - cuMatca;
 
-  const active = familiiTabel.filter(
-    (familie) =>
-      familie.status === "Activ"
-  ).length;
+  const active =
+    familiiTabel.filter(
+      (familie) =>
+        familie.status === "Activ"
+    ).length;
+
+  // IMPORTANT:
+  // Comparăm cu String() deoarece id-ul
+  // din URL este text, iar id-ul din
+  // Supabase poate fi număr.
 
   const stupiDisponibili =
     availableStupi.filter(
       (stup) =>
-        stup.stupina_id !== id
+        String(stup.stupina_id || "") !==
+        String(id)
     );
 
   const roiuriDisponibile =
     availableRoiuri.filter(
       (roi) =>
-        roi.stupina_id !== id
+        String(roi.stupina_id || "") !==
+        String(id)
     );
 
   // =========================
@@ -590,7 +804,9 @@ export default function StupinaPage() {
   if (!stupina) {
     return (
       <main style={styles.page}>
-        <h1>Stupina nu a fost găsită.</h1>
+        <h1>
+          Stupina nu a fost găsită.
+        </h1>
 
         <Link href="/stupine">
           ← Înapoi la stupine
@@ -634,13 +850,30 @@ export default function StupinaPage() {
             )}
           </div>
 
-          <div style={styles.headerButtons}>
+          <div
+            style={
+              styles.headerButtons
+            }
+          >
+
+            <button
+              onClick={() =>
+                setShowBulkAdd(true)
+              }
+              style={
+                styles.bulkButton
+              }
+            >
+              📦 Adaugă în masă
+            </button>
 
             <button
               onClick={() =>
                 setShowAddStup(true)
               }
-              style={styles.primaryButton}
+              style={
+                styles.primaryButton
+              }
             >
               ➕ Adaugă stup existent
             </button>
@@ -649,7 +882,9 @@ export default function StupinaPage() {
               onClick={() =>
                 setShowAddRoi(true)
               }
-              style={styles.secondaryButton}
+              style={
+                styles.secondaryButton
+              }
             >
               🐝 Adaugă roi existent
             </button>
@@ -663,27 +898,39 @@ export default function StupinaPage() {
         <div style={styles.stats}>
 
           <div style={styles.stat}>
-            <strong>{totalFamilii}</strong>
+            <strong>
+              {totalFamilii}
+            </strong>
             <span>Familii</span>
           </div>
 
           <div style={styles.stat}>
-            <strong>{stupi.length}</strong>
+            <strong>
+              {stupi.length}
+            </strong>
             <span>Stupi</span>
           </div>
 
           <div style={styles.stat}>
-            <strong>{roiuri.length}</strong>
-            <span>Roiuri/Nuclee</span>
+            <strong>
+              {roiuri.length}
+            </strong>
+            <span>
+              Roiuri/Nuclee
+            </span>
           </div>
 
           <div style={styles.stat}>
-            <strong>{cuMatca}</strong>
+            <strong>
+              {cuMatca}
+            </strong>
             <span>Cu matcă</span>
           </div>
 
           <div style={styles.stat}>
-            <strong>{faraMatca}</strong>
+            <strong>
+              {faraMatca}
+            </strong>
             <span>Fără matcă</span>
           </div>
 
@@ -695,12 +942,16 @@ export default function StupinaPage() {
           </div>
 
           <div style={styles.stat}>
-            <strong>{totalPuiet}</strong>
+            <strong>
+              {totalPuiet}
+            </strong>
             <span>Rame puiet</span>
           </div>
 
           <div style={styles.stat}>
-            <strong>{active}</strong>
+            <strong>
+              {active}
+            </strong>
             <span>Active</span>
           </div>
 
@@ -726,8 +977,13 @@ export default function StupinaPage() {
             style={styles.search}
           />
 
-          <div style={styles.smallStats}>
-            🍯 {totalMiereRame} rame miere · 🌼{" "}
+          <div
+            style={
+              styles.smallStats
+            }
+          >
+            🍯 {totalMiereRame} rame
+            miere · 🌼{" "}
             {totalPolen} rame polen
           </div>
 
@@ -739,7 +995,8 @@ export default function StupinaPage() {
 
           <div style={styles.cardHeader}>
             <h2>
-              Familiile din {stupina.nume}
+              Familiile din{" "}
+              {stupina.nume}
             </h2>
 
             <span>
@@ -747,18 +1004,24 @@ export default function StupinaPage() {
             </span>
           </div>
 
-          {filteredFamilii.length === 0 ? (
+          {filteredFamilii.length ===
+          0 ? (
             <div style={styles.empty}>
-              Nu există încă familii în această
-              stupină.
+              Nu există încă familii în
+              această stupină.
               <br />
-              Folosește butoanele de mai sus pentru
-              a adăuga stupi sau roiuri existente.
+              Folosește butoanele de mai sus
+              pentru a adăuga stupi sau roiuri
+              existente.
             </div>
           ) : (
-            <div style={styles.tableWrap}>
+            <div
+              style={styles.tableWrap}
+            >
 
-              <table style={styles.table}>
+              <table
+                style={styles.table}
+              >
 
                 <thead>
                   <tr>
@@ -802,12 +1065,13 @@ export default function StupinaPage() {
                                     : "#fff3cd",
                               }}
                             >
-                              {familie.tipFamilie}
+                              {
+                                familie.tipFamilie
+                              }
                             </span>
                           </td>
 
                           <td>
-
                             {esteStup ? (
                               <Link
                                 href={`/stupi/${familie.numar}`}
@@ -815,18 +1079,24 @@ export default function StupinaPage() {
                                   styles.numberLink
                                 }
                               >
-                                #{familie.numar}
+                                #
+                                {
+                                  familie.numar
+                                }
                               </Link>
                             ) : (
                               <strong>
-                                #{familie.numar}
+                                #
+                                {
+                                  familie.numar
+                                }
                               </strong>
                             )}
-
                           </td>
 
                           <td>
-                            {familie.matca || "-"}
+                            {familie.matca ||
+                              "-"}
                           </td>
 
                           <td>
@@ -844,7 +1114,8 @@ export default function StupinaPage() {
                           </td>
 
                           <td>
-                            {familie.rame ?? 0}
+                            {familie.rame ??
+                              0}
                           </td>
 
                           <td>
@@ -854,7 +1125,8 @@ export default function StupinaPage() {
 
                           <td>
                             {Number(
-                              familie.miere_kg || 0
+                              familie.miere_kg ||
+                                0
                             ).toFixed(1)}
                           </td>
 
@@ -864,23 +1136,28 @@ export default function StupinaPage() {
                           </td>
 
                           <td>
-
                             <select
                               value={
                                 familie.status ||
                                 ""
                               }
-                              onChange={(e) => {
+                              onChange={(
+                                e
+                              ) => {
 
-                                if (esteStup) {
+                                if (
+                                  esteStup
+                                ) {
                                   updateStupStatus(
                                     familie.id,
-                                    e.target.value
+                                    e.target
+                                      .value
                                   );
                                 } else {
                                   updateRoiStatus(
                                     familie.id,
-                                    e.target.value
+                                    e.target
+                                      .value
                                   );
                                 }
 
@@ -919,7 +1196,6 @@ export default function StupinaPage() {
                               )}
 
                             </select>
-
                           </td>
 
                           <td>
@@ -937,7 +1213,6 @@ export default function StupinaPage() {
                           </td>
 
                           <td>
-
                             <div
                               style={
                                 styles.actions
@@ -975,7 +1250,6 @@ export default function StupinaPage() {
                               </button>
 
                             </div>
-
                           </td>
 
                         </tr>
@@ -992,11 +1266,382 @@ export default function StupinaPage() {
 
         </div>
 
-        {/* MODAL ADAUGĂ STUP */}
+        {/* ========================================
+            MODAL ADAUGĂ ÎN MASĂ
+        ======================================== */}
+
+        {showBulkAdd && (
+          <div
+            style={
+              styles.modalOverlay
+            }
+          >
+
+            <div
+              style={
+                styles.bulkModal
+              }
+            >
+
+              <div
+                style={
+                  styles.modalHeader
+                }
+              >
+
+                <div>
+                  <h2
+                    style={{
+                      margin: 0,
+                    }}
+                  >
+                    📦 Adaugă în masă
+                  </h2>
+
+                  <p
+                    style={{
+                      margin:
+                        "6px 0 0",
+                      color: "#666",
+                    }}
+                  >
+                    Selectează elementele
+                    existente pe care vrei
+                    să le adaugi în{" "}
+                    <strong>
+                      {stupina.nume}
+                    </strong>.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setShowBulkAdd(
+                      false
+                    );
+                    setSelectedStupi(
+                      []
+                    );
+                    setSelectedRoiuri(
+                      []
+                    );
+                  }}
+                  style={styles.close}
+                >
+                  ✕
+                </button>
+
+              </div>
+
+              {/* STUPI */}
+
+              <div
+                style={
+                  styles.bulkSection
+                }
+              >
+
+                <div
+                  style={
+                    styles.bulkSectionHeader
+                  }
+                >
+
+                  <h3>
+                    🐝 Stupi
+                  </h3>
+
+                  <button
+                    onClick={
+                      selectAllStupi
+                    }
+                    style={
+                      styles.selectAllButton
+                    }
+                  >
+                    {selectedStupi.length ===
+                    stupiDisponibili.length &&
+                    stupiDisponibili.length >
+                      0
+                      ? "☐ Deselectează toți"
+                      : "☑ Selectează toți"}
+                  </button>
+
+                </div>
+
+                <div
+                  style={
+                    styles.selectionInfo
+                  }
+                >
+                  Selectați:{" "}
+                  <strong>
+                    {selectedStupi.length}
+                  </strong>{" "}
+                  /{" "}
+                  {
+                    stupiDisponibili.length
+                  }
+                </div>
+
+                <div
+                  style={
+                    styles.bulkList
+                  }
+                >
+
+                  {stupiDisponibili.length ===
+                  0 ? (
+                    <div
+                      style={
+                        styles.emptySmall
+                      }
+                    >
+                      Nu există stupi
+                      disponibili.
+                    </div>
+                  ) : (
+                    stupiDisponibili.map(
+                      (stup) => {
+
+                        const selected =
+                          selectedStupi.includes(
+                            stup.id
+                          );
+
+                        return (
+                          <label
+                            key={stup.id}
+                            style={{
+                              ...styles.checkItem,
+                              background:
+                                selected
+                                  ? "#e8f5e9"
+                                  : "#f8f9fa",
+                            }}
+                          >
+
+                            <input
+                              type="checkbox"
+                              checked={
+                                selected
+                              }
+                              onChange={() =>
+                                toggleStupSelection(
+                                  stup.id
+                                )
+                              }
+                            />
+
+                            <strong>
+                              Stup #
+                              {
+                                stup.numar_stup
+                              }
+                            </strong>
+
+                            <span
+                              style={
+                                styles.checkLocation
+                              }
+                            >
+                              {stup.stupina_id
+                                ? "📍 Altă stupină"
+                                : "⚪ Fără stupină"}
+                            </span>
+
+                          </label>
+                        );
+                      }
+                    )
+                  )}
+
+                </div>
+
+              </div>
+
+              {/* ROIURI */}
+
+              <div
+                style={
+                  styles.bulkSection
+                }
+              >
+
+                <div
+                  style={
+                    styles.bulkSectionHeader
+                  }
+                >
+
+                  <h3>
+                    🍯 Roiuri / Nuclee
+                  </h3>
+
+                  <button
+                    onClick={
+                      selectAllRoiuri
+                    }
+                    style={
+                      styles.selectAllButton
+                    }
+                  >
+                    {selectedRoiuri.length ===
+                    roiuriDisponibile.length &&
+                    roiuriDisponibile.length >
+                      0
+                      ? "☐ Deselectează toți"
+                      : "☑ Selectează toți"}
+                  </button>
+
+                </div>
+
+                <div
+                  style={
+                    styles.selectionInfo
+                  }
+                >
+                  Selectați:{" "}
+                  <strong>
+                    {selectedRoiuri.length}
+                  </strong>{" "}
+                  /{" "}
+                  {
+                    roiuriDisponibile.length
+                  }
+                </div>
+
+                <div
+                  style={
+                    styles.bulkList
+                  }
+                >
+
+                  {roiuriDisponibile.length ===
+                  0 ? (
+                    <div
+                      style={
+                        styles.emptySmall
+                      }
+                    >
+                      Nu există roiuri sau
+                      nuclee disponibile.
+                    </div>
+                  ) : (
+                    roiuriDisponibile.map(
+                      (roi) => {
+
+                        const selected =
+                          selectedRoiuri.includes(
+                            roi.id
+                          );
+
+                        return (
+                          <label
+                            key={roi.id}
+                            style={{
+                              ...styles.checkItem,
+                              background:
+                                selected
+                                  ? "#fff8e1"
+                                  : "#f8f9fa",
+                            }}
+                          >
+
+                            <input
+                              type="checkbox"
+                              checked={
+                                selected
+                              }
+                              onChange={() =>
+                                toggleRoiSelection(
+                                  roi.id
+                                )
+                              }
+                            />
+
+                            <strong>
+                              {roi.tip ||
+                                "Roi"}{" "}
+                              #
+                              {
+                                roi.numar
+                              }
+                            </strong>
+
+                            <span
+                              style={
+                                styles.checkLocation
+                              }
+                            >
+                              {roi.stupina_id
+                                ? "📍 Altă stupină"
+                                : "⚪ Fără stupină"}
+                            </span>
+
+                          </label>
+                        );
+                      }
+                    )
+                  )}
+
+                </div>
+
+              </div>
+
+              {/* BUTON FINAL */}
+
+              <div
+                style={
+                  styles.bulkFooter
+                }
+              >
+
+                <div>
+                  <strong>
+                    Total selectate:{" "}
+                    {
+                      selectedStupi.length +
+                      selectedRoiuri.length
+                    }
+                  </strong>
+                </div>
+
+                <button
+                  onClick={
+                    addBulkToStupina
+                  }
+                  disabled={
+                    saving ||
+                    selectedStupi.length +
+                      selectedRoiuri.length ===
+                      0
+                  }
+                  style={
+                    styles.bulkSaveButton
+                  }
+                >
+                  {saving
+                    ? "Se adaugă..."
+                    : `📍 Adaugă ${selectedStupi.length + selectedRoiuri.length} în stupină`}
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* ========================================
+            MODAL ADAUGĂ STUP
+        ======================================== */}
 
         {showAddStup && (
           <div
-            style={styles.modalOverlay}
+            style={
+              styles.modalOverlay
+            }
           >
 
             <div style={styles.modal}>
@@ -1051,7 +1696,9 @@ export default function StupinaPage() {
 
                         <strong>
                           Stup #
-                          {stup.numar_stup}
+                          {
+                            stup.numar_stup
+                          }
                         </strong>
 
                         <span>
@@ -1072,11 +1719,15 @@ export default function StupinaPage() {
           </div>
         )}
 
-        {/* MODAL ADAUGĂ ROI */}
+        {/* ========================================
+            MODAL ADAUGĂ ROI
+        ======================================== */}
 
         {showAddRoi && (
           <div
-            style={styles.modalOverlay}
+            style={
+              styles.modalOverlay
+            }
           >
 
             <div style={styles.modal}>
@@ -1103,7 +1754,8 @@ export default function StupinaPage() {
               </div>
 
               <p>
-                Alege un roi sau nucleu existent.
+                Alege un roi sau nucleu
+                existent.
               </p>
 
               <div style={styles.list}>
@@ -1132,7 +1784,10 @@ export default function StupinaPage() {
                         <strong>
                           {roi.tip ||
                             "Roi"}{" "}
-                          #{roi.numar}
+                          #
+                          {
+                            roi.numar
+                          }
                         </strong>
 
                         <span>
@@ -1153,7 +1808,9 @@ export default function StupinaPage() {
           </div>
         )}
 
-        {/* MODAL VERIFICARE */}
+        {/* ========================================
+            MODAL VERIFICARE
+        ======================================== */}
 
         {showVerification &&
           selectedFamilie && (
@@ -1501,6 +2158,16 @@ const styles = {
     fontWeight: "bold",
   },
 
+  bulkButton: {
+    border: "none",
+    background: "#2563eb",
+    color: "white",
+    padding: "12px 18px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: "bold",
+  },
+
   stats: {
     display: "grid",
     gridTemplateColumns:
@@ -1627,6 +2294,12 @@ const styles = {
     color: "#666",
   },
 
+  emptySmall: {
+    padding: "20px",
+    textAlign: "center",
+    color: "#666",
+  },
+
   modalOverlay: {
     position: "fixed",
     inset: 0,
@@ -1642,6 +2315,16 @@ const styles = {
     background: "white",
     width: "100%",
     maxWidth: "800px",
+    maxHeight: "90vh",
+    overflowY: "auto",
+    borderRadius: "14px",
+    padding: "25px",
+  },
+
+  bulkModal: {
+    background: "white",
+    width: "100%",
+    maxWidth: "900px",
     maxHeight: "90vh",
     overflowY: "auto",
     borderRadius: "14px",
@@ -1679,6 +2362,83 @@ const styles = {
     borderRadius: "8px",
     cursor: "pointer",
     textAlign: "left",
+  },
+
+  bulkSection: {
+    border: "1px solid #e5e7eb",
+    borderRadius: "10px",
+    padding: "15px",
+    marginBottom: "15px",
+  },
+
+  bulkSectionHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "10px",
+    flexWrap: "wrap",
+  },
+
+  selectAllButton: {
+    border: "1px solid #ccc",
+    background: "white",
+    padding: "8px 12px",
+    borderRadius: "7px",
+    cursor: "pointer",
+    fontWeight: "600",
+  },
+
+  selectionInfo: {
+    marginTop: "8px",
+    color: "#555",
+    fontSize: "14px",
+  },
+
+  bulkList: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fill, minmax(250px, 1fr))",
+    gap: "8px",
+    marginTop: "12px",
+    maxHeight: "300px",
+    overflowY: "auto",
+  },
+
+  checkItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "9px",
+    padding: "11px",
+    border: "1px solid #ddd",
+    borderRadius: "8px",
+    cursor: "pointer",
+  },
+
+  checkLocation: {
+    marginLeft: "auto",
+    fontSize: "11px",
+    color: "#777",
+  },
+
+  bulkFooter: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "15px",
+    marginTop: "20px",
+    paddingTop: "18px",
+    borderTop: "1px solid #eee",
+    flexWrap: "wrap",
+  },
+
+  bulkSaveButton: {
+    border: "none",
+    background: "#167a42",
+    color: "white",
+    padding: "13px 20px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: "bold",
   },
 
   formGrid: {
