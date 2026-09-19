@@ -4,6 +4,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "./lib/supabase";
 
+const emptyVerification = () => ({
+  data: new Date().toISOString().split("T")[0],
+  matca: "",
+  an_matca: "",
+  rame: "",
+  rame_puiet: "",
+  rame_miere: "",
+  rame_polen: "",
+  observatii: "",
+});
+
 export default function Home() {
   const [stupi, setStupi] = useState([]);
   const [roiuri, setRoiuri] = useState([]);
@@ -31,16 +42,7 @@ export default function Home() {
     detalii: "",
   });
 
-  const [verification, setVerification] = useState({
-    data: new Date().toISOString().split("T")[0],
-    matca: "",
-    an_matca: "",
-    rame: "",
-    rame_puiet: "",
-    rame_miere: "",
-    rame_polen: "",
-    observatii: "",
-  });
+  const [verification, setVerification] = useState(emptyVerification());
 
   useEffect(() => {
     getData();
@@ -49,75 +51,130 @@ export default function Home() {
   async function getData() {
     setLoading(true);
 
-    const { data: stupiData, error: stupiError } =
-      await supabase
+    const [
+      stupiResult,
+      roiuriResult,
+      tratamenteResult,
+      verificariResult,
+    ] = await Promise.all([
+      supabase
         .from("stupi")
         .select("*")
-        .order("numar_stup", { ascending: true });
+        .order("numar_stup", { ascending: true }),
 
-    if (stupiError) {
-      console.error(stupiError);
+      supabase
+        .from("roiuri")
+        .select("*")
+        .order("numar", { ascending: true }),
+
+      supabase
+        .from("tratamente")
+        .select("*")
+        .order("data_tratament", { ascending: false }),
+
+      supabase
+        .from("verificari")
+        .select("*")
+        .order("data_verificare", { ascending: false }),
+    ]);
+
+    if (stupiResult.error) {
+      console.error(stupiResult.error);
       alert("Nu s-au putut încărca stupii.");
       setLoading(false);
       return;
     }
 
-    setStupi(stupiData || []);
-
-    const { data: roiuriData, error: roiuriError } =
-      await supabase
-        .from("roiuri")
-        .select("*")
-        .order("numar", { ascending: true });
-
-    if (roiuriError) {
-      console.error(roiuriError);
+    if (roiuriResult.error) {
+      console.error(roiuriResult.error);
       alert(
         "Nu s-au putut încărca roiurile/nucleele: " +
-          roiuriError.message
+          roiuriResult.error.message
       );
-    } else {
-      setRoiuri(roiuriData || []);
     }
 
-    const { data: tratamenteData, error: tratamenteError } =
-      await supabase
-        .from("tratamente")
-        .select("*")
-        .order("data_tratament", { ascending: false });
-
-    if (tratamenteError) {
-      console.error(tratamenteError);
+    if (tratamenteResult.error) {
+      console.error(tratamenteResult.error);
       alert(
         "Nu s-au putut încărca tratamentele: " +
-          tratamenteError.message
+          tratamenteResult.error.message
       );
-    } else {
-      setTratamente(tratamenteData || []);
     }
 
-    const { data: verificariData, error: verificariError } =
-      await supabase
-        .from("verificari")
-        .select("*")
-        .order("data_verificare", { ascending: false });
-
-    if (verificariError) {
-      console.error(verificariError);
+    if (verificariResult.error) {
+      console.error(verificariResult.error);
       alert(
         "Nu s-au putut încărca verificările: " +
-          verificariError.message
+          verificariResult.error.message
       );
-    } else {
-      setVerificari(verificariData || []);
     }
+
+    let stupiData = stupiResult.data || [];
+    let roiuriData = roiuriResult.data || [];
+    const verificariData = verificariResult.data || [];
+
+    /*
+     * Luăm ultima verificare pentru fiecare familie.
+     * Astfel, chiar și după refresh, tabelul principal
+     * afișează datele ultimei verificări.
+     */
+    const ultimaVerificareStup = {};
+    const ultimaVerificareRoi = {};
+
+    verificariData.forEach((v) => {
+      if (v.stup_id && !ultimaVerificareStup[v.stup_id]) {
+        ultimaVerificareStup[v.stup_id] = v;
+      }
+
+      if (v.roi_id && !ultimaVerificareRoi[v.roi_id]) {
+        ultimaVerificareRoi[v.roi_id] = v;
+      }
+    });
+
+    stupiData = stupiData.map((stup) => {
+      const v = ultimaVerificareStup[stup.id];
+
+      if (!v) return stup;
+
+      return {
+        ...stup,
+        matca: v.matca,
+        an_matca: v.an_matca,
+        rame: v.rame,
+        rame_puiet: v.rame_puiet,
+        rame_miere: v.rame_miere,
+        rame_polen: v.rame_polen,
+        observatii: v.observatii,
+      };
+    });
+
+    roiuriData = roiuriData.map((roi) => {
+      const v = ultimaVerificareRoi[roi.id];
+
+      if (!v) return roi;
+
+      return {
+        ...roi,
+        matca: v.matca,
+        an_matca: v.an_matca,
+        rame: v.rame,
+        rame_puiet: v.rame_puiet,
+        rame_miere: v.rame_miere,
+        rame_polen: v.rame_polen,
+        observatii: v.observatii,
+      };
+    });
+
+    setStupi(stupiData);
+    setRoiuri(roiuriData);
+    setTratamente(tratamenteResult.data || []);
+    setVerificari(verificariData);
 
     setLoading(false);
   }
 
   function openVerification(familie) {
     const esteStup = familie.tipFamilie === "Stup";
-
     const original = familie.original || familie;
 
     setSelectedFamilie({
@@ -130,7 +187,7 @@ export default function Home() {
     setVerification({
       data: new Date().toISOString().split("T")[0],
       matca: original.matca || "",
-      an_matca: original.an_matca || "",
+      an_matca: original.an_matca ?? "",
       rame: original.rame ?? "",
       rame_puiet: original.rame_puiet ?? "",
       rame_miere: original.rame_miere ?? "",
@@ -151,25 +208,13 @@ export default function Home() {
 
     setSavingVerification(true);
 
-    const esteStup =
-      selectedFamilie.tipFamilie === "Stup";
+    const esteStup = selectedFamilie.tipFamilie === "Stup";
 
-    const record = {
-      stup_id: esteStup
-        ? selectedFamilie.id
-        : null,
-
-      roi_id: esteStup
-        ? null
-        : selectedFamilie.id,
-
-      data_verificare: verification.data,
-
-      matca:
-        verification.matca || null,
+    const updateData = {
+      matca: verification.matca || null,
 
       an_matca:
-        verification.an_matca
+        verification.an_matca !== ""
           ? Number(verification.an_matca)
           : null,
 
@@ -193,10 +238,19 @@ export default function Home() {
           ? Number(verification.rame_polen)
           : null,
 
-      observatii:
-        verification.observatii || null,
+      observatii: verification.observatii || null,
     };
 
+    const record = {
+      stup_id: esteStup ? selectedFamilie.id : null,
+      roi_id: esteStup ? null : selectedFamilie.id,
+      data_verificare: verification.data,
+      ...updateData,
+    };
+
+    /*
+     * 1. Salvăm verificarea în istoricul verificărilor.
+     */
     const { data, error } = await supabase
       .from("verificari")
       .insert(record)
@@ -210,63 +264,52 @@ export default function Home() {
         "Eroare la salvarea verificării: " +
           error.message
       );
-    } else {
-      setVerificari((prev) => [
-        data,
-        ...prev,
-      ]);
 
-      /*
-       * Actualizăm și datele familiei,
-       * astfel încât ultima verificare să
-       * se vadă direct în tabelul principal.
-       */
+      setSavingVerification(false);
+      return;
+    }
 
-      if (esteStup) {
+    /*
+     * 2. Actualizăm și familia propriu-zisă.
+     * Asta face ca datele să rămână în tabel după refresh.
+     */
+    if (esteStup) {
+      const { error: updateError } = await supabase
+        .from("stupi")
+        .update(updateData)
+        .eq("id", selectedFamilie.id);
+
+      if (updateError) {
+        console.error(updateError);
+
+        alert(
+          "Verificarea a fost salvată, dar datele stupului nu au putut fi actualizate:\n\n" +
+            updateError.message
+        );
+      } else {
         setStupi((prev) =>
           prev.map((stup) =>
             stup.id === selectedFamilie.id
               ? {
                   ...stup,
-                  matca:
-                    verification.matca ||
-                    null,
-                  an_matca:
-                    verification.an_matca
-                      ? Number(
-                          verification.an_matca
-                        )
-                      : null,
-                  rame:
-                    verification.rame !== ""
-                      ? Number(
-                          verification.rame
-                        )
-                      : null,
-                  rame_puiet:
-                    verification.rame_puiet !== ""
-                      ? Number(
-                          verification.rame_puiet
-                        )
-                      : null,
-                  rame_miere:
-                    verification.rame_miere !== ""
-                      ? Number(
-                          verification.rame_miere
-                        )
-                      : null,
-                  rame_polen:
-                    verification.rame_polen !== ""
-                      ? Number(
-                          verification.rame_polen
-                        )
-                      : null,
-                  observatii:
-                    verification.observatii ||
-                    null,
+                  ...updateData,
                 }
               : stup
           )
+        );
+      }
+    } else {
+      const { error: updateError } = await supabase
+        .from("roiuri")
+        .update(updateData)
+        .eq("id", selectedFamilie.id);
+
+      if (updateError) {
+        console.error(updateError);
+
+        alert(
+          "Verificarea a fost salvată, dar datele roiului/nucleului nu au putut fi actualizate:\n\n" +
+            updateError.message
         );
       } else {
         setRoiuri((prev) =>
@@ -274,64 +317,30 @@ export default function Home() {
             roi.id === selectedFamilie.id
               ? {
                   ...roi,
-                  matca:
-                    verification.matca ||
-                    null,
-                  an_matca:
-                    verification.an_matca
-                      ? Number(
-                          verification.an_matca
-                        )
-                      : null,
-                  rame:
-                    verification.rame !== ""
-                      ? Number(
-                          verification.rame
-                        )
-                      : null,
-                  rame_puiet:
-                    verification.rame_puiet !== ""
-                      ? Number(
-                          verification.rame_puiet
-                        )
-                      : null,
-                  rame_miere:
-                    verification.rame_miere !== ""
-                      ? Number(
-                          verification.rame_miere
-                        )
-                      : null,
-                  rame_polen:
-                    verification.rame_polen !== ""
-                      ? Number(
-                          verification.rame_polen
-                        )
-                      : null,
-                  observatii:
-                    verification.observatii ||
-                    null,
+                  ...updateData,
                 }
               : roi
           )
         );
       }
-
-      setShowVerification(false);
-
-      const numeFamilie = esteStup
-        ? "stupul " +
-          selectedFamilie.numar_stup
-        : (selectedFamilie.tip ||
-            selectedFamilie.tipFamilie) +
-          " " +
-          selectedFamilie.numar;
-
-      alert(
-        "Verificarea pentru " +
-          numeFamilie +
-          " a fost salvată!"
-      );
     }
+
+    setVerificari((prev) => [data, ...prev]);
+
+    setShowVerification(false);
+
+    const numeFamilie = esteStup
+      ? "Stupul " + selectedFamilie.numar_stup
+      : (selectedFamilie.tip ||
+          selectedFamilie.tipFamilie) +
+        " " +
+        selectedFamilie.numar;
+
+    alert(
+      "Verificarea pentru " +
+        numeFamilie +
+        " a fost salvată!"
+    );
 
     setSavingVerification(false);
   }
@@ -358,8 +367,7 @@ export default function Home() {
 
     const alreadyExists = stupi.some(
       (stup) =>
-        Number(stup.numar_stup) ===
-        numericNumber
+        Number(stup.numar_stup) === numericNumber
     );
 
     if (alreadyExists) {
@@ -419,10 +427,7 @@ export default function Home() {
     setSavingStup(false);
   }
 
-  async function updateStupStatus(
-    stupId,
-    status
-  ) {
+  async function updateStupStatus(stupId, status) {
     const { error } = await supabase
       .from("stupi")
       .update({ status })
@@ -447,10 +452,7 @@ export default function Home() {
     );
   }
 
-  async function updateRoiStatus(
-    roiId,
-    status
-  ) {
+  async function updateRoiStatus(roiId, status) {
     const { error } = await supabase
       .from("roiuri")
       .update({ status })
@@ -494,11 +496,10 @@ export default function Home() {
 
     if (!confirmare) return;
 
-    const { error: stupiError } =
-      await supabase
-        .from("stupi")
-        .update({ status })
-        .not("id", "is", null);
+    const { error: stupiError } = await supabase
+      .from("stupi")
+      .update({ status })
+      .not("id", "is", null);
 
     if (stupiError) {
       console.error(stupiError);
@@ -510,11 +511,10 @@ export default function Home() {
       return;
     }
 
-    const { error: roiuriError } =
-      await supabase
-        .from("roiuri")
-        .update({ status })
-        .not("id", "is", null);
+    const { error: roiuriError } = await supabase
+      .from("roiuri")
+      .update({ status })
+      .not("id", "is", null);
 
     if (roiuriError) {
       console.error(roiuriError);
@@ -548,9 +548,7 @@ export default function Home() {
 
   async function applyTreatmentToAll() {
     if (!treatment.tip || !treatment.data) {
-      alert(
-        "Completează tratamentul și data."
-      );
+      alert("Completează tratamentul și data.");
       return;
     }
 
@@ -574,29 +572,21 @@ export default function Home() {
 
     setSavingTreatment(true);
 
-    const stupiRecords = stupi.map(
-      (stup) => ({
-        stup_id: stup.id,
-        roi_id: null,
-        tip: treatment.tip,
-        data_tratament:
-          treatment.data,
-        detalii:
-          treatment.detalii || null,
-      })
-    );
+    const stupiRecords = stupi.map((stup) => ({
+      stup_id: stup.id,
+      roi_id: null,
+      tip: treatment.tip,
+      data_tratament: treatment.data,
+      detalii: treatment.detalii || null,
+    }));
 
-    const roiuriRecords = roiuri.map(
-      (roi) => ({
-        stup_id: null,
-        roi_id: roi.id,
-        tip: treatment.tip,
-        data_tratament:
-          treatment.data,
-        detalii:
-          treatment.detalii || null,
-      })
-    );
+    const roiuriRecords = roiuri.map((roi) => ({
+      stup_id: null,
+      roi_id: roi.id,
+      tip: treatment.tip,
+      data_tratament: treatment.data,
+      detalii: treatment.detalii || null,
+    }));
 
     const records = [
       ...stupiRecords,
@@ -604,10 +594,7 @@ export default function Home() {
     ];
 
     if (records.length === 0) {
-      alert(
-        "Nu există nicio familie înregistrată."
-      );
-
+      alert("Nu există nicio familie înregistrată.");
       setSavingTreatment(false);
       return;
     }
@@ -654,9 +641,7 @@ export default function Home() {
     setSavingTreatment(false);
   }
 
-  async function deleteTreatmentBatch(
-    batch
-  ) {
+  async function deleteTreatmentBatch(batch) {
     const confirmare = window.confirm(
       "Sigur vrei să ștergi tratamentul " +
         batch.tip +
@@ -665,8 +650,7 @@ export default function Home() {
         " pentru cele " +
         batch.count +
         " familii?\n\nDetalii: " +
-        (batch.detalii ||
-          "Fără detalii")
+        (batch.detalii || "Fără detalii")
     );
 
     if (!confirmare) return;
@@ -688,10 +672,7 @@ export default function Home() {
         batch.detalii
       );
     } else {
-      query = query.is(
-        "detalii",
-        null
-      );
+      query = query.is("detalii", null);
     }
 
     const { error } = await query;
@@ -707,8 +688,7 @@ export default function Home() {
       setTratamente((prev) =>
         prev.filter((tratament) => {
           const sameTip =
-            tratament.tip ===
-            batch.tip;
+            tratament.tip === batch.tip;
 
           const sameDate =
             tratament.data_tratament ===
@@ -739,13 +719,8 @@ export default function Home() {
   if (loading) {
     return (
       <main style={styles.page}>
-        <h1 style={styles.title}>
-          🐝 StuPINa
-        </h1>
-
-        <p>
-          Se încarcă stupina...
-        </p>
+        <h1 style={styles.title}>🐝 StuPINa</h1>
+        <p>Se încarcă stupina...</p>
       </main>
     );
   }
@@ -756,161 +731,110 @@ export default function Home() {
   const totalMiere =
     stupi.reduce(
       (total, stup) =>
-        total +
-        Number(
-          stup.miere_kg || 0
-        ),
+        total + Number(stup.miere_kg || 0),
       0
     ) +
     roiuri.reduce(
       (total, roi) =>
-        total +
-        Number(
-          roi.miere_kg || 0
-        ),
+        total + Number(roi.miere_kg || 0),
       0
     );
 
   const totalPuiet =
     stupi.reduce(
       (total, stup) =>
-        total +
-        Number(
-          stup.rame_puiet || 0
-        ),
+        total + Number(stup.rame_puiet || 0),
       0
     ) +
     roiuri.reduce(
       (total, roi) =>
-        total +
-        Number(
-          roi.rame_puiet || 0
-        ),
+        total + Number(roi.rame_puiet || 0),
       0
     );
 
   const totalRameMiere =
     stupi.reduce(
       (total, stup) =>
-        total +
-        Number(
-          stup.rame_miere || 0
-        ),
+        total + Number(stup.rame_miere || 0),
       0
     ) +
     roiuri.reduce(
       (total, roi) =>
-        total +
-        Number(
-          roi.rame_miere || 0
-        ),
+        total + Number(roi.rame_miere || 0),
       0
     );
 
   const totalRamePolen =
     stupi.reduce(
       (total, stup) =>
-        total +
-        Number(
-          stup.rame_polen || 0
-        ),
+        total + Number(stup.rame_polen || 0),
       0
     ) +
     roiuri.reduce(
       (total, roi) =>
-        total +
-        Number(
-          roi.rame_polen || 0
-        ),
+        total + Number(roi.rame_polen || 0),
       0
     );
 
   const cuMatca =
-    stupi.filter(
-      (stup) => stup.matca
-    ).length +
-    roiuri.filter(
-      (roi) => roi.matca
-    ).length;
+    stupi.filter((stup) => stup.matca).length +
+    roiuri.filter((roi) => roi.matca).length;
 
   const faraMatca =
     totalFamilii - cuMatca;
 
-  const alerteStupi =
-    stupi.filter(
-      (stup) =>
-        !stup.matca ||
-        Number(
-          stup.rame_puiet || 0
-        ) === 0
-    );
-
-  const alerteRoiuri =
-    roiuri.filter(
-      (roi) =>
-        !roi.matca ||
-        Number(
-          roi.rame_puiet || 0
-        ) === 0
-    );
-
   const alerte = [
-    ...alerteStupi.map(
-      (stup) => ({
+    ...stupi
+      .filter(
+        (stup) =>
+          !stup.matca ||
+          Number(stup.rame_puiet || 0) === 0
+      )
+      .map((stup) => ({
         tipFamilie: "stup",
         id: stup.id,
-        numar:
-          stup.numar_stup,
+        numar: stup.numar_stup,
         matca: stup.matca,
-        rame_puiet:
-          stup.rame_puiet,
-      })
-    ),
+        rame_puiet: stup.rame_puiet,
+      })),
 
-    ...alerteRoiuri.map(
-      (roi) => ({
+    ...roiuri
+      .filter(
+        (roi) =>
+          !roi.matca ||
+          Number(roi.rame_puiet || 0) === 0
+      )
+      .map((roi) => ({
         tipFamilie: "roi",
         id: roi.id,
         numar: roi.numar,
         tip: roi.tip,
         matca: roi.matca,
-        rame_puiet:
-          roi.rame_puiet,
-      })
-    ),
+        rame_puiet: roi.rame_puiet,
+      })),
   ];
 
-  const stupiActivi =
-    stupi.filter(
-      (stup) =>
-        stup.status === "Activ"
-    ).length;
+  const stupiActivi = stupi.filter(
+    (stup) => stup.status === "Activ"
+  ).length;
 
-  const stupiInactivi =
-    stupi.filter(
-      (stup) =>
-        stup.status === "Inactiv"
-    ).length;
+  const stupiInactivi = stupi.filter(
+    (stup) => stup.status === "Inactiv"
+  ).length;
 
-  const roiuriActive =
-    roiuri.filter(
-      (roi) =>
-        roi.status === "Activ"
-    ).length;
+  const roiuriActive = roiuri.filter(
+    (roi) => roi.status === "Activ"
+  ).length;
 
-  const roiuriInactive =
-    roiuri.filter(
-      (roi) =>
-        roi.status === "Inactiv"
-    ).length;
+  const roiuriInactive = roiuri.filter(
+    (roi) => roi.status === "Inactiv"
+  ).length;
 
   const familiiActive =
-    stupiActivi +
-    roiuriActive;
+    stupiActivi + roiuriActive;
 
   const familiiInactive =
-    stupiInactivi +
-    roiuriInactive;
+    stupiInactivi + roiuriInactive;
 
   const familiiFaraStatus =
     totalFamilii -
@@ -920,117 +844,90 @@ export default function Home() {
   const searchTerm =
     search.trim().toLowerCase();
 
-  const filteredStupi =
-    stupi.filter((stup) =>
-      String(
-        stup.numar_stup
-      )
-        .toLowerCase()
-        .includes(searchTerm)
-    );
+  const filteredStupi = stupi.filter((stup) =>
+    String(stup.numar_stup)
+      .toLowerCase()
+      .includes(searchTerm)
+  );
 
-  const filteredRoiuri =
-    roiuri.filter((roi) =>
-      String(roi.numar)
-        .toLowerCase()
-        .includes(searchTerm)
-    );
+  const filteredRoiuri = roiuri.filter((roi) =>
+    String(roi.numar)
+      .toLowerCase()
+      .includes(searchTerm)
+  );
 
-  const hasSearch =
-    searchTerm.length > 0;
+  const hasSearch = searchTerm.length > 0;
 
   const familiiTabel = [
-    ...filteredStupi.map(
-      (stup) => ({
-        tipFamilie: "Stup",
-        id: stup.id,
-        numar: stup.numar_stup,
-        matca: stup.matca,
-        an_matca:
-          stup.an_matca,
-        rame: stup.rame,
-        rame_puiet:
-          stup.rame_puiet,
-        rame_miere:
-          stup.rame_miere,
-        rame_polen:
-          stup.rame_polen,
-        miere_kg:
-          stup.miere_kg,
-        status: stup.status,
-        observatii:
-          stup.observatii,
-        original: stup,
-      })
-    ),
+    ...filteredStupi.map((stup) => ({
+      tipFamilie: "Stup",
+      id: stup.id,
+      numar: stup.numar_stup,
+      numar_stup: stup.numar_stup,
+      matca: stup.matca,
+      an_matca: stup.an_matca,
+      rame: stup.rame,
+      rame_puiet: stup.rame_puiet,
+      rame_miere: stup.rame_miere,
+      rame_polen: stup.rame_polen,
+      miere_kg: stup.miere_kg,
+      status: stup.status,
+      observatii: stup.observatii,
+      original: stup,
+    })),
 
-    ...filteredRoiuri.map(
-      (roi) => ({
-        tipFamilie:
-          roi.tip === "Nucleu"
-            ? "Nucleu"
-            : "Roi",
-        id: roi.id,
-        numar: roi.numar,
-        matca: roi.matca,
-        an_matca:
-          roi.an_matca,
-        rame: roi.rame,
-        rame_puiet:
-          roi.rame_puiet,
-        rame_miere:
-          roi.rame_miere,
-        rame_polen:
-          roi.rame_polen,
-        miere_kg:
-          roi.miere_kg,
-        status: roi.status,
-        observatii:
-          roi.observatii,
-        origine:
-          roi.origine,
-        tip: roi.tip,
-        original: roi,
-      })
-    ),
+    ...filteredRoiuri.map((roi) => ({
+      tipFamilie:
+        roi.tip === "Nucleu"
+          ? "Nucleu"
+          : "Roi",
+      id: roi.id,
+      numar: roi.numar,
+      matca: roi.matca,
+      an_matca: roi.an_matca,
+      rame: roi.rame,
+      rame_puiet: roi.rame_puiet,
+      rame_miere: roi.rame_miere,
+      rame_polen: roi.rame_polen,
+      miere_kg: roi.miere_kg,
+      status: roi.status,
+      observatii: roi.observatii,
+      origine: roi.origine,
+      tip: roi.tip,
+      original: roi,
+    })),
   ].sort((a, b) =>
     String(a.numar).localeCompare(
       String(b.numar),
       undefined,
-      {
-        numeric: true,
-      }
+      { numeric: true }
     )
   );
 
   const batchesMap = {};
 
-  tratamente.forEach(
-    (tratament) => {
-      const key =
-        tratament.tip +
-        "|" +
-        tratament.data_tratament +
-        "|" +
-        (tratament.detalii ||
-          "");
+  tratamente.forEach((tratament) => {
+    const key =
+      tratament.tip +
+      "|" +
+      tratament.data_tratament +
+      "|" +
+      (tratament.detalii || "");
 
-      if (!batchesMap[key]) {
-        batchesMap[key] = {
-          key,
-          tip: tratament.tip,
-          data_tratament:
-            tratament.data_tratament,
-          detalii:
-            tratament.detalii ||
-            "",
-          count: 0,
-        };
-      }
-
-      batchesMap[key].count++;
+    if (!batchesMap[key]) {
+      batchesMap[key] = {
+        key,
+        tip: tratament.tip,
+        data_tratament:
+          tratament.data_tratament,
+        detalii:
+          tratament.detalii || "",
+        count: 0,
+      };
     }
-  );
+
+    batchesMap[key].count++;
+  });
 
   const treatmentBatches =
     Object.values(batchesMap);
@@ -1087,10 +984,7 @@ export default function Home() {
         <StatCard
           icon="🍯"
           title="Miere"
-          value={
-            totalMiere.toFixed(1) +
-            " kg"
-          }
+          value={totalMiere.toFixed(1) + " kg"}
         />
 
         <StatCard
@@ -1113,87 +1007,54 @@ export default function Home() {
       </section>
 
       {alerte.length > 0 && (
-        <section
-          style={styles.alertSection}
-        >
+        <section style={styles.alertSection}>
           <div style={styles.alertTitle}>
             🚨 Atenție
           </div>
 
           <p style={styles.alertText}>
-            Sunt {alerte.length} familii
-            care necesită atenție.
+            Sunt {alerte.length} familii care necesită atenție.
           </p>
 
           <div style={styles.alertList}>
-            {alerte
-              .slice(0, 12)
-              .map((familie) => {
-                if (
-                  familie.tipFamilie ===
-                  "stup"
-                ) {
-                  return (
-                    <Link
-                      key={
-                        "alert-stup-" +
-                        familie.id
-                      }
-                      href={
-                        "/stupi/" +
-                        familie.numar
-                      }
-                      style={
-                        styles.alertItem
-                      }
-                    >
-                      Stup{" "}
-                      {familie.numar}
-
-                      {!familie.matca
-                        ? " — fără matcă"
-                        : Number(
-                            familie.rame_puiet ||
-                              0
-                          ) === 0
-                        ? " — fără puiet"
-                        : ""}
-                    </Link>
-                  );
-                }
-
+            {alerte.slice(0, 12).map((familie) => {
+              if (familie.tipFamilie === "stup") {
                 return (
                   <Link
-                    key={
-                      "alert-roi-" +
-                      familie.id
-                    }
-                    href="/roiuri"
-                    style={
-                      styles.alertRoiItem
-                    }
+                    key={"alert-stup-" + familie.id}
+                    href={"/stupi/" + familie.numar}
+                    style={styles.alertItem}
                   >
-                    {familie.tip}{" "}
-                    {familie.numar}
-
+                    Stup {familie.numar}
                     {!familie.matca
                       ? " — fără matcă"
-                      : Number(
-                          familie.rame_puiet ||
-                            0
-                        ) === 0
+                      : Number(familie.rame_puiet || 0) === 0
                       ? " — fără puiet"
                       : ""}
                   </Link>
                 );
-              })}
+              }
+
+              return (
+                <Link
+                  key={"alert-roi-" + familie.id}
+                  href="/roiuri"
+                  style={styles.alertRoiItem}
+                >
+                  {familie.tip} {familie.numar}
+                  {!familie.matca
+                    ? " — fără matcă"
+                    : Number(familie.rame_puiet || 0) === 0
+                    ? " — fără puiet"
+                    : ""}
+                </Link>
+              );
+            })}
           </div>
 
           {alerte.length > 12 && (
             <p style={styles.moreAlert}>
-              + încă{" "}
-              {alerte.length - 12}{" "}
-              familii
+              + încă {alerte.length - 12} familii
             </p>
           )}
         </section>
@@ -1209,158 +1070,87 @@ export default function Home() {
           type="text"
           placeholder="Ex: 25, 1234, R1, R15..."
           value={search}
-          onChange={(e) =>
-            setSearch(e.target.value)
-          }
+          onChange={(e) => setSearch(e.target.value)}
         />
 
         {hasSearch && (
-          <div
-            style={styles.searchResults}
-          >
+          <div style={styles.searchResults}>
             {filteredStupi.length === 0 &&
             filteredRoiuri.length === 0 ? (
-              <div
-                style={
-                  styles.noSearchResults
-                }
-              >
-                Nu am găsit niciun stup,
-                roi sau nucleu pentru
-                „{search}”.
+              <div style={styles.noSearchResults}>
+                Nu am găsit niciun stup, roi sau nucleu pentru „
+                {search}”.
               </div>
             ) : (
               <>
-                {filteredStupi.length >
-                  0 && (
-                  <div
-                    style={
-                      styles.searchGroup
-                    }
-                  >
-                    <div
-                      style={
-                        styles.searchGroupTitle
-                      }
-                    >
+                {filteredStupi.length > 0 && (
+                  <div style={styles.searchGroup}>
+                    <div style={styles.searchGroupTitle}>
                       🐝 Stupi
                     </div>
 
-                    <div
-                      style={
-                        styles.searchItems
-                      }
-                    >
-                      {filteredStupi.map(
-                        (stup) => (
-                          <Link
-                            key={
-                              "stup-" +
-                              stup.id
-                            }
-                            href={
-                              "/stupi/" +
-                              stup.numar_stup
-                            }
-                            style={
-                              styles.searchStupItem
-                            }
-                          >
-                            <div>
-                              <strong>
-                                Stupul{" "}
-                                {
-                                  stup.numar_stup
-                                }
-                              </strong>
+                    <div style={styles.searchItems}>
+                      {filteredStupi.map((stup) => (
+                        <Link
+                          key={"stup-" + stup.id}
+                          href={"/stupi/" + stup.numar_stup}
+                          style={styles.searchStupItem}
+                        >
+                          <div>
+                            <strong>
+                              Stupul {stup.numar_stup}
+                            </strong>
 
-                              <div
-                                style={
-                                  styles.searchItemDetails
-                                }
-                              >
-                                {stup.matca
-                                  ? "👑 Cu matcă"
-                                  : "⚠️ Fără matcă"}
-                                {" • "}
-                                {stup.status ||
-                                  "Fără status"}
-                              </div>
+                            <div style={styles.searchItemDetails}>
+                              {stup.matca
+                                ? "👑 Cu matcă"
+                                : "⚠️ Fără matcă"}
+                              {" • "}
+                              {stup.status || "Fără status"}
                             </div>
+                          </div>
 
-                            <span>
-                              →
-                            </span>
-                          </Link>
-                        )
-                      )}
+                          <span>→</span>
+                        </Link>
+                      ))}
                     </div>
                   </div>
                 )}
 
-                {filteredRoiuri.length >
-                  0 && (
-                  <div
-                    style={
-                      styles.searchGroup
-                    }
-                  >
-                    <div
-                      style={
-                        styles.searchGroupTitle
-                      }
-                    >
+                {filteredRoiuri.length > 0 && (
+                  <div style={styles.searchGroup}>
+                    <div style={styles.searchGroupTitle}>
                       🐝 Roiuri / Nuclee
                     </div>
 
-                    <div
-                      style={
-                        styles.searchItems
-                      }
-                    >
-                      {filteredRoiuri.map(
-                        (roi) => (
-                          <Link
-                            key={
-                              "roi-" +
-                              roi.id
-                            }
-                            href="/roiuri"
-                            style={
-                              styles.searchRoiItem
-                            }
-                          >
-                            <div>
-                              <strong>
-                                {roi.tip}{" "}
-                                {roi.numar}
-                              </strong>
+                    <div style={styles.searchItems}>
+                      {filteredRoiuri.map((roi) => (
+                        <Link
+                          key={"roi-" + roi.id}
+                          href="/roiuri"
+                          style={styles.searchRoiItem}
+                        >
+                          <div>
+                            <strong>
+                              {roi.tip} {roi.numar}
+                            </strong>
 
-                              <div
-                                style={
-                                  styles.searchItemDetails
-                                }
-                              >
-                                {roi.matca
-                                  ? "👑 Cu matcă"
-                                  : "⚠️ Fără matcă"}
-                                {" • "}
-                                {roi.status ||
-                                  "Fără status"}
+                            <div style={styles.searchItemDetails}>
+                              {roi.matca
+                                ? "👑 Cu matcă"
+                                : "⚠️ Fără matcă"}
+                              {" • "}
+                              {roi.status || "Fără status"}
 
-                                {roi.origine
-                                  ? " • Origine: " +
-                                    roi.origine
-                                  : ""}
-                              </div>
+                              {roi.origine
+                                ? " • Origine: " + roi.origine
+                                : ""}
                             </div>
+                          </div>
 
-                            <span>
-                              →
-                            </span>
-                          </Link>
-                        )
-                      )}
+                          <span>→</span>
+                        </Link>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -1373,9 +1163,7 @@ export default function Home() {
       <section style={styles.actionsSection}>
         <button
           style={styles.addStupButton}
-          onClick={() =>
-            setShowAddStup(true)
-          }
+          onClick={() => setShowAddStup(true)}
         >
           ➕ Adaugă stup
         </button>
@@ -1389,12 +1177,9 @@ export default function Home() {
 
         <button
           style={styles.treatmentButton}
-          onClick={() =>
-            setShowTreatment(true)
-          }
+          onClick={() => setShowTreatment(true)}
         >
-          💊 Tratamente pentru toate
-          familiile
+          💊 Tratamente pentru toate familiile
         </button>
 
         <Link
@@ -1419,76 +1204,40 @@ export default function Home() {
               🔄 Status familii
             </h2>
 
-            <p
-              style={
-                styles.statusSubtitle
-              }
-            >
-              Poți schimba statusul
-              fiecărei familii separat
+            <p style={styles.statusSubtitle}>
+              Poți schimba statusul fiecărei familii separat
               sau al tuturor deodată.
             </p>
           </div>
 
-          <div
-            style={styles.statusActions}
-          >
+          <div style={styles.statusActions}>
             <button
-              style={
-                styles.activateAllButton
-              }
-              onClick={() =>
-                updateAllStatuses(
-                  "Activ"
-                )
-              }
+              style={styles.activateAllButton}
+              onClick={() => updateAllStatuses("Activ")}
             >
               🟢 Toți activi
             </button>
 
             <button
-              style={
-                styles.deactivateAllButton
-              }
-              onClick={() =>
-                updateAllStatuses(
-                  "Inactiv"
-                )
-              }
+              style={styles.deactivateAllButton}
+              onClick={() => updateAllStatuses("Inactiv")}
             >
               🔴 Toți inactivi
             </button>
           </div>
         </div>
 
-        <div
-          style={styles.statusSummary}
-        >
-          <span
-            style={
-              styles.activeSummary
-            }
-          >
-            🟢 {familiiActive} familii
-            active
+        <div style={styles.statusSummary}>
+          <span style={styles.activeSummary}>
+            🟢 {familiiActive} familii active
           </span>
 
-          <span
-            style={
-              styles.inactiveSummary
-            }
-          >
-            🔴 {familiiInactive} familii
-            inactive
+          <span style={styles.inactiveSummary}>
+            🔴 {familiiInactive} familii inactive
           </span>
 
-          <span
-            style={
-              styles.noStatusSummary
-            }
-          >
-            ⚪ {familiiFaraStatus} fără
-            status
+          <span style={styles.noStatusSummary}>
+            ⚪ {familiiFaraStatus} fără status
           </span>
         </div>
       </section>
@@ -1499,449 +1248,260 @@ export default function Home() {
             📜 Tratamente înregistrate
           </h2>
 
-          <p
-            style={
-              styles.batchSubtitle
-            }
-          >
-            Istoricul include tratamentele
-            aplicate atât stupilor, cât și
-            roiurilor/nucleelor.
+          <p style={styles.batchSubtitle}>
+            Istoricul include tratamentele aplicate atât
+            stupilor, cât și roiurilor/nucleelor.
           </p>
         </div>
 
-        {treatmentBatches.length ===
-        0 ? (
-          <div
-            style={styles.emptyBatches}
-          >
-            Nu există tratamente
-            înregistrate.
+        {treatmentBatches.length === 0 ? (
+          <div style={styles.emptyBatches}>
+            Nu există tratamente înregistrate.
           </div>
         ) : (
-          <div
-            style={styles.batchList}
-          >
-            {treatmentBatches.map(
-              (batch) => (
-                <div
-                  key={batch.key}
-                  style={
-                    styles.batchItem
-                  }
-                >
-                  <div
-                    style={
-                      styles.batchContent
-                    }
-                  >
-                    <div
-                      style={
-                        styles.batchTreatment
-                      }
-                    >
-                      💊 {batch.tip}
-                    </div>
-
-                    <div
-                      style={
-                        styles.batchInfo
-                      }
-                    >
-                      📅{" "}
-                      {
-                        batch.data_tratament
-                      }
-                      {" • "}
-                      🐝 {batch.count}{" "}
-                      {batch.count === 1
-                        ? "familie"
-                        : "familii"}
-                    </div>
-
-                    {batch.detalii && (
-                      <div
-                        style={
-                          styles.batchDetails
-                        }
-                      >
-                        📝{" "}
-                        {batch.detalii}
-                      </div>
-                    )}
+          <div style={styles.batchList}>
+            {treatmentBatches.map((batch) => (
+              <div
+                key={batch.key}
+                style={styles.batchItem}
+              >
+                <div style={styles.batchContent}>
+                  <div style={styles.batchTreatment}>
+                    💊 {batch.tip}
                   </div>
 
-                  <button
-                    style={
-                      styles.deleteBatchButton
-                    }
-                    onClick={() =>
-                      deleteTreatmentBatch(
-                        batch
-                      )
-                    }
-                    disabled={
-                      deletingBatch ===
-                      batch.key
-                    }
-                  >
-                    {deletingBatch ===
-                    batch.key
-                      ? "Se șterge..."
-                      : "🗑️ Șterge tranșa"}
-                  </button>
+                  <div style={styles.batchInfo}>
+                    📅 {batch.data_tratament}
+                    {" • "}
+                    🐝 {batch.count}{" "}
+                    {batch.count === 1
+                      ? "familie"
+                      : "familii"}
+                  </div>
+
+                  {batch.detalii && (
+                    <div style={styles.batchDetails}>
+                      📝 {batch.detalii}
+                    </div>
+                  )}
                 </div>
-              )
-            )}
+
+                <button
+                  style={styles.deleteBatchButton}
+                  onClick={() =>
+                    deleteTreatmentBatch(batch)
+                  }
+                  disabled={
+                    deletingBatch === batch.key
+                  }
+                >
+                  {deletingBatch === batch.key
+                    ? "Se șterge..."
+                    : "🗑️ Șterge tranșa"}
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </section>
 
-      <section
-        style={styles.mainTableSection}
-      >
-        <div
-          style={
-            styles.mainTableHeader
-          }
-        >
+      <section style={styles.mainTableSection}>
+        <div style={styles.mainTableHeader}>
           <div>
-            <h2
-              style={
-                styles.mainTableTitle
-              }
-            >
-              🐝 Toate familiile din
-              stupină
+            <h2 style={styles.mainTableTitle}>
+              🐝 Toate familiile din stupină
             </h2>
 
-            <p
-              style={
-                styles.mainTableSubtitle
-              }
-            >
-              Stupii, roiurile și nucleele
-              sunt afișate împreună.
+            <p style={styles.mainTableSubtitle}>
+              Stupii, roiurile și nucleele sunt afișate împreună.
             </p>
           </div>
 
-          <div
-            style={
-              styles.tableFamilyCount
-            }
-          >
+          <div style={styles.tableFamilyCount}>
             {familiiTabel.length} afișate
           </div>
         </div>
 
-        <div
-          style={styles.tableWrapper}
-        >
+        <div style={styles.tableWrapper}>
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={styles.th}>
-                  Tip
-                </th>
-
-                <th style={styles.th}>
-                  Nr.
-                </th>
-
-                <th style={styles.th}>
-                  Matcă
-                </th>
-
-                <th style={styles.th}>
-                  An matcă
-                </th>
-
-                <th style={styles.th}>
-                  Rame
-                </th>
-
-                <th style={styles.th}>
-                  Puiet
-                </th>
-
-                <th style={styles.th}>
-                  Miere kg
-                </th>
-
-                <th style={styles.th}>
-                  Polen
-                </th>
-
-                <th style={styles.th}>
-                  Status
-                </th>
-
-                <th style={styles.th}>
-                  Origine
-                </th>
-
-                <th style={styles.th}>
-                  Observații
-                </th>
-
-                <th style={styles.th}>
-                  Acțiune
-                </th>
+                <th style={styles.th}>Tip</th>
+                <th style={styles.th}>Nr.</th>
+                <th style={styles.th}>Matcă</th>
+                <th style={styles.th}>An matcă</th>
+                <th style={styles.th}>Rame</th>
+                <th style={styles.th}>Puiet</th>
+                <th style={styles.th}>Miere kg</th>
+                <th style={styles.th}>Polen</th>
+                <th style={styles.th}>Status</th>
+                <th style={styles.th}>Origine</th>
+                <th style={styles.th}>Observații</th>
+                <th style={styles.th}>Acțiune</th>
               </tr>
             </thead>
 
             <tbody>
-              {familiiTabel.map(
-                (familie) => {
-                  const esteStup =
-                    familie.tipFamilie ===
-                    "Stup";
+              {familiiTabel.map((familie) => {
+                const esteStup =
+                  familie.tipFamilie === "Stup";
 
-                  return (
-                    <tr
-                      key={
-                        (esteStup
-                          ? "stup-"
-                          : "roi-") +
-                        familie.id
-                      }
-                      style={
-                        styles.row
-                      }
-                    >
-                      <td
+                return (
+                  <tr
+                    key={
+                      (esteStup ? "stup-" : "roi-") +
+                      familie.id
+                    }
+                    style={styles.row}
+                  >
+                    <td style={styles.td}>
+                      <span
                         style={
-                          styles.td
+                          esteStup
+                            ? styles.familyStupBadge
+                            : familie.tipFamilie === "Nucleu"
+                            ? styles.familyNucleuBadge
+                            : styles.familyRoiBadge
                         }
                       >
-                        <span
-                          style={
-                            esteStup
-                              ? styles.familyStupBadge
-                              : familie.tipFamilie ===
-                                "Nucleu"
-                              ? styles.familyNucleuBadge
-                              : styles.familyRoiBadge
+                        {esteStup
+                          ? "🐝 Stup"
+                          : familie.tipFamilie === "Nucleu"
+                          ? "🔵 Nucleu"
+                          : "🟡 Roi"}
+                      </span>
+                    </td>
+
+                    <td style={styles.tdNumber}>
+                      {esteStup ? (
+                        <Link
+                          href={
+                            "/stupi/" +
+                            familie.numar
                           }
+                          style={styles.stupLink}
                         >
-                          {esteStup
-                            ? "🐝 Stup"
-                            : familie.tipFamilie ===
-                              "Nucleu"
-                            ? "🔵 Nucleu"
-                            : "🟡 Roi"}
-                        </span>
-                      </td>
+                          Stupul {familie.numar}
+                        </Link>
+                      ) : (
+                        <Link
+                          href="/roiuri"
+                          style={styles.roiLink}
+                        >
+                          {familie.numar}
+                        </Link>
+                      )}
+                    </td>
 
-                      <td
-                        style={
-                          styles.tdNumber
-                        }
+                    <td style={styles.td}>
+                      {familie.matca || "—"}
+                    </td>
+
+                    <td style={styles.td}>
+                      {familie.an_matca || "—"}
+                    </td>
+
+                    <td style={styles.td}>
+                      {familie.rame ?? "—"}
+                    </td>
+
+                    <td style={styles.td}>
+                      {familie.rame_puiet ?? "—"}
+                    </td>
+
+                    <td style={styles.td}>
+                      {familie.miere_kg
+                        ? familie.miere_kg + " kg"
+                        : "—"}
+                    </td>
+
+                    <td style={styles.td}>
+                      {familie.rame_polen ?? "—"}
+                    </td>
+
+                    <td style={styles.td}>
+                      <select
+                        value={familie.status || ""}
+                        onChange={(e) => {
+                          if (esteStup) {
+                            updateStupStatus(
+                              familie.id,
+                              e.target.value
+                            );
+                          } else {
+                            updateRoiStatus(
+                              familie.id,
+                              e.target.value
+                            );
+                          }
+                        }}
+                        style={{
+                          ...styles.statusSelect,
+                          ...(familie.status === "Activ"
+                            ? styles.statusSelectActive
+                            : {}),
+                          ...(familie.status === "Inactiv"
+                            ? styles.statusSelectInactive
+                            : {}),
+                        }}
                       >
-                        {esteStup ? (
-                          <Link
-                            href={
-                              "/stupi/" +
-                              familie.numar
-                            }
-                            style={
-                              styles.stupLink
-                            }
-                          >
-                            Stupul{" "}
-                            {
-                              familie.numar
-                            }
-                          </Link>
-                        ) : (
-                          <Link
-                            href="/roiuri"
-                            style={
-                              styles.roiLink
-                            }
-                          >
-                            {
-                              familie.numar
-                            }
-                          </Link>
+                        <option value="">
+                          Selectează
+                        </option>
+
+                        <option value="Activ">
+                          Activ
+                        </option>
+
+                        <option value="Inactiv">
+                          Inactiv
+                        </option>
+
+                        {!esteStup && (
+                          <>
+                            <option value="Vândut">
+                              Vândut
+                            </option>
+
+                            <option value="Unit">
+                              Unit
+                            </option>
+
+                            <option value="Pierdut">
+                              Pierdut
+                            </option>
+                          </>
                         )}
-                      </td>
+                      </select>
+                    </td>
 
-                      <td
-                        style={
-                          styles.td
+                    <td style={styles.td}>
+                      {familie.origine || "—"}
+                    </td>
+
+                    <td style={styles.td}>
+                      {familie.observatii || "—"}
+                    </td>
+
+                    <td style={styles.td}>
+                      <button
+                        style={styles.verifyButton}
+                        onClick={() =>
+                          openVerification(familie)
                         }
                       >
-                        {familie.matca ||
-                          "—"}
-                      </td>
-
-                      <td
-                        style={
-                          styles.td
-                        }
-                      >
-                        {familie.an_matca ||
-                          "—"}
-                      </td>
-
-                      <td
-                        style={
-                          styles.td
-                        }
-                      >
-                        {familie.rame ??
-                          "—"}
-                      </td>
-
-                      <td
-                        style={
-                          styles.td
-                        }
-                      >
-                        {familie.rame_puiet ??
-                          "—"}
-                      </td>
-
-                      <td
-                        style={
-                          styles.td
-                        }
-                      >
-                        {familie.miere_kg
-                          ? familie.miere_kg +
-                            " kg"
-                          : "—"}
-                      </td>
-
-                      <td
-                        style={
-                          styles.td
-                        }
-                      >
-                        {familie.rame_polen ??
-                          "—"}
-                      </td>
-
-                      <td
-                        style={
-                          styles.td
-                        }
-                      >
-                        <select
-                          value={
-                            familie.status ||
-                            ""
-                          }
-                          onChange={(
-                            e
-                          ) => {
-                            if (
-                              esteStup
-                            ) {
-                              updateStupStatus(
-                                familie.id,
-                                e.target
-                                  .value
-                              );
-                            } else {
-                              updateRoiStatus(
-                                familie.id,
-                                e.target
-                                  .value
-                              );
-                            }
-                          }}
-                          style={{
-                            ...styles.statusSelect,
-                            ...(familie.status ===
-                            "Activ"
-                              ? styles.statusSelectActive
-                              : {}),
-                            ...(familie.status ===
-                            "Inactiv"
-                              ? styles.statusSelectInactive
-                              : {}),
-                          }}
-                        >
-                          <option value="">
-                            Selectează
-                          </option>
-
-                          <option value="Activ">
-                            Activ
-                          </option>
-
-                          <option value="Inactiv">
-                            Inactiv
-                          </option>
-
-                          {!esteStup && (
-                            <>
-                              <option value="Vândut">
-                                Vândut
-                              </option>
-
-                              <option value="Unit">
-                                Unit
-                              </option>
-
-                              <option value="Pierdut">
-                                Pierdut
-                              </option>
-                            </>
-                          )}
-                        </select>
-                      </td>
-
-                      <td
-                        style={
-                          styles.td
-                        }
-                      >
-                        {familie.origine ||
-                          "—"}
-                      </td>
-
-                      <td
-                        style={
-                          styles.td
-                        }
-                      >
-                        {familie.observatii ||
-                          "—"}
-                      </td>
-
-                      <td
-                        style={
-                          styles.td
-                        }
-                      >
-                        <button
-                          style={
-                            styles.verifyButton
-                          }
-                          onClick={() =>
-                            openVerification(
-                              familie
-                            )
-                          }
-                        >
-                          📝 Verifică
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                }
-              )}
+                        📝 Verifică
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
         {familiiTabel.length === 0 && (
-          <div
-            style={styles.noResults}
-          >
+          <div style={styles.noResults}>
             {hasSearch
               ? "Nu există familii care corespund căutării."
               : "Nu există familii înregistrate."}
@@ -1951,31 +1511,19 @@ export default function Home() {
 
       {showAddStup && (
         <div style={styles.overlay}>
-          <div
-            style={styles.smallModal}
-          >
+          <div style={styles.smallModal}>
             <button
-              style={
-                styles.closeButton
-              }
-              onClick={() =>
-                setShowAddStup(false)
-              }
+              style={styles.closeButton}
+              onClick={() => setShowAddStup(false)}
             >
               ×
             </button>
 
-            <h2
-              style={styles.modalTitle}
-            >
+            <h2 style={styles.modalTitle}>
               ➕ Adaugă stup nou
             </h2>
 
-            <p
-              style={
-                styles.modalDescription
-              }
-            >
+            <p style={styles.modalDescription}>
               Introdu numărul noului stup.
             </p>
 
@@ -1990,9 +1538,7 @@ export default function Home() {
               value={newStupNumber}
               placeholder="Ex: 201"
               onChange={(e) =>
-                setNewStupNumber(
-                  e.target.value
-                )
+                setNewStupNumber(e.target.value)
               }
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -2003,9 +1549,7 @@ export default function Home() {
             />
 
             <button
-              style={
-                styles.confirmButton
-              }
+              style={styles.confirmButton}
               onClick={addStup}
               disabled={savingStup}
             >
@@ -2021,9 +1565,7 @@ export default function Home() {
         <div style={styles.overlay}>
           <div style={styles.modal}>
             <button
-              style={
-                styles.closeButton
-              }
+              style={styles.closeButton}
               onClick={() =>
                 setShowVerification(false)
               }
@@ -2031,12 +1573,9 @@ export default function Home() {
               ×
             </button>
 
-            <h2
-              style={styles.modalTitle}
-            >
+            <h2 style={styles.modalTitle}>
               📝 Verificare{" "}
-              {selectedFamilie?.tipFamilie ===
-              "Stup"
+              {selectedFamilie?.tipFamilie === "Stup"
                 ? "Stupul " +
                   selectedFamilie?.numar_stup
                 : selectedFamilie?.tip +
@@ -2044,13 +1583,8 @@ export default function Home() {
                   selectedFamilie?.numar}
             </h2>
 
-            <p
-              style={
-                styles.modalDescription
-              }
-            >
-              Completează datele observate
-              la verificarea familiei.
+            <p style={styles.modalDescription}>
+              Completează datele observate la verificarea familiei.
             </p>
 
             <label style={styles.label}>
@@ -2060,9 +1594,7 @@ export default function Home() {
             <input
               style={styles.input}
               type="date"
-              value={
-                verification.data
-              }
+              value={verification.data}
               onChange={(e) =>
                 setVerification({
                   ...verification,
@@ -2077,9 +1609,7 @@ export default function Home() {
 
             <select
               style={styles.input}
-              value={
-                verification.matca
-              }
+              value={verification.matca}
               onChange={(e) =>
                 setVerification({
                   ...verification,
@@ -2107,26 +1637,19 @@ export default function Home() {
             <input
               style={styles.input}
               type="number"
-              value={
-                verification.an_matca
-              }
+              value={verification.an_matca}
               onChange={(e) =>
                 setVerification({
                   ...verification,
-                  an_matca:
-                    e.target.value,
+                  an_matca: e.target.value,
                 })
               }
             />
 
-            <div
-              style={styles.numberGrid}
-            >
+            <div style={styles.numberGrid}>
               <NumberField
                 label="Rame"
-                value={
-                  verification.rame
-                }
+                value={verification.rame}
                 onChange={(value) =>
                   setVerification({
                     ...verification,
@@ -2137,9 +1660,7 @@ export default function Home() {
 
               <NumberField
                 label="Rame puiet"
-                value={
-                  verification.rame_puiet
-                }
+                value={verification.rame_puiet}
                 onChange={(value) =>
                   setVerification({
                     ...verification,
@@ -2150,9 +1671,7 @@ export default function Home() {
 
               <NumberField
                 label="Rame miere"
-                value={
-                  verification.rame_miere
-                }
+                value={verification.rame_miere}
                 onChange={(value) =>
                   setVerification({
                     ...verification,
@@ -2163,9 +1682,7 @@ export default function Home() {
 
               <NumberField
                 label="Rame polen"
-                value={
-                  verification.rame_polen
-                }
+                value={verification.rame_polen}
                 onChange={(value) =>
                   setVerification({
                     ...verification,
@@ -2182,28 +1699,19 @@ export default function Home() {
             <textarea
               style={styles.textarea}
               placeholder="Ex: familie puternică, puiet compact..."
-              value={
-                verification.observatii
-              }
+              value={verification.observatii}
               onChange={(e) =>
                 setVerification({
                   ...verification,
-                  observatii:
-                    e.target.value,
+                  observatii: e.target.value,
                 })
               }
             />
 
             <button
-              style={
-                styles.confirmButton
-              }
-              onClick={
-                saveVerification
-              }
-              disabled={
-                savingVerification
-              }
+              style={styles.confirmButton}
+              onClick={saveVerification}
+              disabled={savingVerification}
             >
               {savingVerification
                 ? "Se salvează..."
@@ -2217,9 +1725,7 @@ export default function Home() {
         <div style={styles.overlay}>
           <div style={styles.modal}>
             <button
-              style={
-                styles.closeButton
-              }
+              style={styles.closeButton}
               onClick={() =>
                 setShowTreatment(false)
               }
@@ -2227,26 +1733,15 @@ export default function Home() {
               ×
             </button>
 
-            <h2
-              style={styles.modalTitle}
-            >
-              💊 Tratament pentru toate
-              familiile
+            <h2 style={styles.modalTitle}>
+              💊 Tratament pentru toate familiile
             </h2>
 
-            <p
-              style={
-                styles.modalDescription
-              }
-            >
-              Tratamentul va fi adăugat
-              în istoricul tuturor celor{" "}
-              <strong>
-                {totalFamilii} familii
-              </strong>
-              :{" "}
-              {stupi.length} stupi +{" "}
-              {roiuri.length} roiuri/nuclee.
+            <p style={styles.modalDescription}>
+              Tratamentul va fi adăugat în istoricul tuturor celor{" "}
+              <strong>{totalFamilii} familii</strong>:
+              {" "}
+              {stupi.length} stupi + {roiuri.length} roiuri/nuclee.
             </p>
 
             <label style={styles.label}>
@@ -2287,9 +1782,7 @@ export default function Home() {
             <input
               style={styles.input}
               type="date"
-              value={
-                treatment.data
-              }
+              value={treatment.data}
               onChange={(e) =>
                 setTreatment({
                   ...treatment,
@@ -2305,28 +1798,19 @@ export default function Home() {
             <textarea
               style={styles.textarea}
               placeholder="Ex: Penultima tranșă, 2 pufuri..."
-              value={
-                treatment.detalii
-              }
+              value={treatment.detalii}
               onChange={(e) =>
                 setTreatment({
                   ...treatment,
-                  detalii:
-                    e.target.value,
+                  detalii: e.target.value,
                 })
               }
             />
 
             <button
-              style={
-                styles.confirmButton
-              }
-              onClick={
-                applyTreatmentToAll
-              }
-              disabled={
-                savingTreatment
-              }
+              style={styles.confirmButton}
+              onClick={applyTreatmentToAll}
+              disabled={savingTreatment}
             >
               {savingTreatment
                 ? "Se adaugă..."
@@ -2341,16 +1825,10 @@ export default function Home() {
   );
 }
 
-function StatCard({
-  icon,
-  title,
-  value,
-}) {
+function StatCard({ icon, title, value }) {
   return (
     <div style={styles.statCard}>
-      <div style={styles.statIcon}>
-        {icon}
-      </div>
+      <div style={styles.statIcon}>{icon}</div>
 
       <div>
         <div style={styles.statTitle}>
@@ -2419,8 +1897,7 @@ const styles = {
     padding: "10px 16px",
     borderRadius: "10px",
     fontWeight: "bold",
-    boxShadow:
-      "0 2px 8px rgba(0,0,0,0.06)",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
   },
 
   statsGrid: {
@@ -2438,8 +1915,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "14px",
-    boxShadow:
-      "0 2px 10px rgba(0,0,0,0.06)",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
   },
 
   statIcon: {
@@ -2514,8 +1990,7 @@ const styles = {
     borderRadius: "14px",
     padding: "18px",
     marginBottom: "20px",
-    boxShadow:
-      "0 2px 10px rgba(0,0,0,0.06)",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
   },
 
   searchTitle: {
@@ -2644,8 +2119,7 @@ const styles = {
     borderRadius: "14px",
     padding: "20px",
     marginBottom: "25px",
-    boxShadow:
-      "0 2px 10px rgba(0,0,0,0.06)",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
   },
 
   statusHeader: {
@@ -2728,13 +2202,92 @@ const styles = {
     fontWeight: "bold",
   },
 
+  batchSection: {
+    background: "#fff",
+    borderRadius: "14px",
+    padding: "20px",
+    marginBottom: "25px",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+  },
+
+  batchHeader: {
+    marginBottom: "15px",
+  },
+
+  batchTitle: {
+    margin: 0,
+    fontSize: "21px",
+  },
+
+  batchSubtitle: {
+    marginTop: "6px",
+    marginBottom: 0,
+    color: "#777",
+    fontSize: "14px",
+  },
+
+  batchList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+  },
+
+  batchItem: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "15px",
+    padding: "15px",
+    background: "#f7f7f7",
+    borderRadius: "10px",
+    border: "1px solid #eee",
+  },
+
+  batchContent: {
+    minWidth: 0,
+  },
+
+  batchTreatment: {
+    fontSize: "16px",
+    fontWeight: "bold",
+    marginBottom: "5px",
+  },
+
+  batchInfo: {
+    color: "#777",
+    fontSize: "14px",
+  },
+
+  batchDetails: {
+    marginTop: "6px",
+    color: "#555",
+    fontSize: "14px",
+  },
+
+  emptyBatches: {
+    padding: "15px",
+    background: "#f7f7f7",
+    borderRadius: "9px",
+    color: "#777",
+  },
+
+  deleteBatchButton: {
+    border: "none",
+    borderRadius: "8px",
+    padding: "10px 14px",
+    background: "#d32f2f",
+    color: "#fff",
+    cursor: "pointer",
+    fontWeight: "bold",
+    flexShrink: 0,
+  },
+
   mainTableSection: {
     background: "#fff",
     borderRadius: "14px",
     padding: "20px",
     marginBottom: "25px",
-    boxShadow:
-      "0 2px 10px rgba(0,0,0,0.06)",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
   },
 
   mainTableHeader: {
@@ -2889,92 +2442,10 @@ const styles = {
     color: "#777",
   },
 
-  batchSection: {
-    background: "#fff",
-    borderRadius: "14px",
-    padding: "20px",
-    marginBottom: "25px",
-    boxShadow:
-      "0 2px 10px rgba(0,0,0,0.06)",
-  },
-
-  batchHeader: {
-    marginBottom: "15px",
-  },
-
-  batchTitle: {
-    margin: 0,
-    fontSize: "21px",
-  },
-
-  batchSubtitle: {
-    marginTop: "6px",
-    marginBottom: 0,
-    color: "#777",
-    fontSize: "14px",
-  },
-
-  batchList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-  },
-
-  batchItem: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "15px",
-    padding: "15px",
-    background: "#f7f7f7",
-    borderRadius: "10px",
-    border: "1px solid #eee",
-  },
-
-  batchContent: {
-    minWidth: 0,
-  },
-
-  batchTreatment: {
-    fontSize: "16px",
-    fontWeight: "bold",
-    marginBottom: "5px",
-  },
-
-  batchInfo: {
-    color: "#777",
-    fontSize: "14px",
-  },
-
-  batchDetails: {
-    marginTop: "6px",
-    color: "#555",
-    fontSize: "14px",
-  },
-
-  emptyBatches: {
-    padding: "15px",
-    background: "#f7f7f7",
-    borderRadius: "9px",
-    color: "#777",
-  },
-
-  deleteBatchButton: {
-    border: "none",
-    borderRadius: "8px",
-    padding: "10px 14px",
-    background: "#d32f2f",
-    color: "#fff",
-    cursor: "pointer",
-    fontWeight: "bold",
-    flexShrink: 0,
-  },
-
   overlay: {
     position: "fixed",
     inset: 0,
-    background:
-      "rgba(0,0,0,0.5)",
+    background: "rgba(0,0,0,0.5)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -2991,8 +2462,7 @@ const styles = {
     borderRadius: "18px",
     padding: "30px",
     position: "relative",
-    boxShadow:
-      "0 10px 40px rgba(0,0,0,0.2)",
+    boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
   },
 
   smallModal: {
@@ -3002,8 +2472,7 @@ const styles = {
     borderRadius: "18px",
     padding: "30px",
     position: "relative",
-    boxShadow:
-      "0 10px 40px rgba(0,0,0,0.2)",
+    boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
   },
 
   closeButton: {
@@ -3046,8 +2515,7 @@ const styles = {
 
   numberGrid: {
     display: "grid",
-    gridTemplateColumns:
-      "repeat(2, 1fr)",
+    gridTemplateColumns: "repeat(2, 1fr)",
     gap: "10px",
   },
 
