@@ -70,14 +70,24 @@ export default function StupinaPage() {
     }
 
     const { data: roiuriData, error: roiuriError } = await supabase
-      .from("roiuri")
-      .select("*")
-      .eq("stupina_id", id)
-      .order("numar");
+  .from("roiuri")
+  .select("*")
+  .eq("stupina_id", id)
+  .order("numar");
 
-    if (roiuriError) {
-      console.error(roiuriError);
-      alert("Eroare la încărcarea roiurilor.");
+if (roiuriError) {
+  console.error("EROARE ROIURI:", roiuriError);
+  alert(
+    "EROARE ROIURI:\n\n" +
+    (roiuriError.message || "Eroare necunoscută") +
+    "\n\nCode: " +
+    (roiuriError.code || "-") +
+    "\n\nDetails: " +
+    (roiuriError.details || "-")
+  );
+} else {
+  setRoiuri(roiuriData || []);
+}
     } else {
       setRoiuri(roiuriData || []);
     }
