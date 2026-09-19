@@ -242,16 +242,15 @@ setSavingTreatment(false);
 
 async function deleteTreatmentBatch(batch) {
 const confirmare = window.confirm(
-"Sigur vrei să ștergi tratamentul "" +
-batch.tip +
-"" din " +
-batch.data_tratament +
-" pentru cei " +
-batch.count +
-" stupi?\n\nDetalii: " +
-(batch.detalii || "Fără detalii")
+  "Sigur vrei să ștergi tratamentul " +
+    batch.tip +
+    " din " +
+    batch.data_tratament +
+    " pentru cei " +
+    batch.count +
+    " stupi?\n\nDetalii: " +
+    (batch.detalii || "Fără detalii")
 );
-
 ```
 if (!confirmare) return;
 
