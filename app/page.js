@@ -1099,7 +1099,7 @@ const confirmare =
       " din stupina „" +
       (stupinaActuala?.nume ||
         "actuală") +
-      ”?\n\nFamilia nu va fi ștearsă. Va rămâne în tabelul principal fără stupină."
+      "?\n\nFamilia nu va fi ștearsă. Va rămâne în tabelul principal fără stupină."
   );
 
 if (!confirmare) return;
