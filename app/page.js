@@ -36,6 +36,7 @@ rame: false,
 rame_puiet: false,
 rame_miere: false,
 rame_polen: false,
+rame_scoase: false,
 miere_kg: false,
 status: false,
 observatii: false,
@@ -49,6 +50,7 @@ rame: "",
 rame_puiet: "",
 rame_miere: "",
 rame_polen: "",
+rame_scoase: "",
 miere_kg: "",
 status: "Activ",
 observatii: "",
@@ -86,6 +88,7 @@ rame: "",
 rame_puiet: "",
 rame_miere: "",
 rame_polen: "",
+rame_scoase: "",
 observatii: "",
 });
 
@@ -198,6 +201,7 @@ setBulkFields({
   rame_puiet: false,
   rame_miere: false,
   rame_polen: false,
+  rame_scoase: false,
   miere_kg: false,
   status: false,
   observatii: false,
@@ -211,6 +215,7 @@ setBulkData({
   rame_puiet: "",
   rame_miere: "",
   rame_polen: "",
+  rame_scoase: "",
   miere_kg: "",
   status: "Activ",
   observatii: "",
@@ -514,6 +519,13 @@ if (bulkFields.rame_polen) {
       : null;
 }
 
+if (bulkFields.rame_scoase) {
+  data.rame_scoase =
+    bulkData.rame_scoase !== ""
+      ? Number(bulkData.rame_scoase)
+      : null;
+}
+
 if (bulkFields.miere_kg) {
   data.miere_kg =
     bulkData.miere_kg !== ""
@@ -716,6 +728,8 @@ setVerification({
     original.rame_miere ?? "",
   rame_polen:
     original.rame_polen ?? "",
+  rame_scoase:
+    original.rame_scoase ?? "",
   observatii: "",
 });
 
@@ -781,6 +795,12 @@ const updateData = {
           verification.rame_polen
         )
       : null,
+  rame_scoase:
+    verification.rame_scoase !== ""
+      ? Number(
+          verification.rame_scoase
+        )
+      : null,
   observatii:
     verification.observatii ||
     null,
@@ -826,6 +846,12 @@ const record = {
     verification.rame_polen !== ""
       ? Number(
           verification.rame_polen
+        )
+      : null,
+  rame_scoase:
+    verification.rame_scoase !== ""
+      ? Number(
+          verification.rame_scoase
         )
       : null,
   observatii:
@@ -1156,6 +1182,7 @@ const { data, error } =
       rame_puiet: null,
       rame_miere: null,
       rame_polen: null,
+      rame_scoase: null,
       miere_kg: 0,
       status: "Activ",
       observatii: null,
@@ -1274,6 +1301,7 @@ const stupiNoi =
       rame_puiet: null,
       rame_miere: null,
       rame_polen: null,
+      rame_scoase: null,
       miere_kg: 0,
       status: "Activ",
       observatii: null,
@@ -1906,6 +1934,24 @@ roi.rame_polen || 0
 0
 );
 
+const totalRameScoase =
+stupi.reduce(
+(total, stup) =>
+total +
+Number(
+stup.rame_scoase || 0
+),
+0
+) +
+roiuri.reduce(
+(total, roi) =>
+total +
+Number(
+roi.rame_scoase || 0
+),
+0
+);
+
 const cuMatca =
 stupi.filter(
 (stup) =>
@@ -2067,6 +2113,8 @@ rame_miere:
 stup.rame_miere,
 rame_polen:
 stup.rame_polen,
+rame_scoase:
+stup.rame_scoase,
 miere_kg:
 stup.miere_kg,
 status: stup.status,
@@ -2098,6 +2146,8 @@ original: stup,
       roi.rame_miere,
     rame_polen:
       roi.rame_polen,
+    rame_scoase:
+      roi.rame_scoase,
     miere_kg:
       roi.miere_kg,
     status: roi.status,
@@ -2265,6 +2315,12 @@ return (
       icon="🍯"
       title="Rame cu miere"
       value={totalRameMiere}
+    />
+
+    <StatCard
+      icon="🪵"
+      title="Rame scoase"
+      value={totalRameScoase}
     />
   </section>
 
@@ -2891,6 +2947,9 @@ return (
               Polen
             </th>
             <th style={styles.th}>
+              Rame scoase
+            </th>
+            <th style={styles.th}>
               Status
             </th>
             <th style={styles.th}>
@@ -3118,6 +3177,15 @@ return (
                     }
                   >
                     {familie.rame_polen ??
+                      "—"}
+                  </td>
+
+                  <td
+                    style={
+                      styles.td
+                    }
+                  >
+                    {familie.rame_scoase ??
                       "—"}
                   </td>
 
@@ -4014,6 +4082,39 @@ return (
 
           <BulkField
             checked={
+              bulkFields.rame_scoase
+            }
+            onChange={() =>
+              toggleBulkField(
+                "rame_scoase"
+              )
+            }
+            label="🪵 Rame scoase"
+          >
+            <input
+              style={
+                styles.input
+              }
+              type="number"
+              min="0"
+              value={
+                bulkData.rame_scoase
+              }
+              onChange={(e) =>
+                setBulkData(
+                  {
+                    ...bulkData,
+                    rame_scoase:
+                      e.target
+                        .value,
+                  }
+                )
+              }
+            />
+          </BulkField>
+
+          <BulkField
+            checked={
               bulkFields.miere_kg
             }
             onChange={() =>
@@ -4755,6 +4856,20 @@ return (
               setVerification({
                 ...verification,
                 rame_polen:
+                  value,
+              })
+            }
+          />
+
+          <NumberField
+            label="Rame scoase"
+            value={
+              verification.rame_scoase
+            }
+            onChange={(value) =>
+              setVerification({
+                ...verification,
+                rame_scoase:
                   value,
               })
             }
