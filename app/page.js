@@ -69,6 +69,7 @@ const [savingStupina, setSavingStupina] = useState(false);
 
 const [deletingBatch, setDeletingBatch] = useState(null);
 const [deletingStup, setDeletingStup] = useState(null);
+const [deletingRoi, setDeletingRoi] = useState(null);
 
 const [newStupNumber, setNewStupNumber] = useState("");
 const [multipleStupiCount, setMultipleStupiCount] = useState("");
@@ -1002,9 +1003,12 @@ if (!stupinaAleasa) {
 
 setSavingStupina(true);
 
+const esteStup = selectedFamilie.tipFamilie === "Stup";
+const tabelul = esteStup ? "stupi" : "roiuri";
+
 const { error } =
   await supabase
-    .from("stupi")
+    .from(tabelul)
     .update({
       stupina_id:
         stupinaAleasa.id,
@@ -1018,7 +1022,7 @@ if (error) {
   console.error(error);
 
   alert(
-    "Eroare la asocierea stupului cu stupina:\n\n" +
+    "Eroare la asocierea cu stupina:\n\n" +
       error.message
   );
 
@@ -1026,26 +1030,44 @@ if (error) {
   return;
 }
 
-setStupi((prev) =>
-  prev.map((stup) =>
-    stup.id ===
-    selectedFamilie.id
-      ? {
-          ...stup,
-          stupina_id:
-            stupinaAleasa.id,
-        }
-      : stup
-  )
-);
+if (esteStup) {
+  setStupi((prev) =>
+    prev.map((stup) =>
+      stup.id ===
+      selectedFamilie.id
+        ? {
+            ...stup,
+            stupina_id:
+              stupinaAleasa.id,
+          }
+        : stup
+    )
+  );
+} else {
+  setRoiuri((prev) =>
+    prev.map((roi) =>
+      roi.id ===
+      selectedFamilie.id
+        ? {
+            ...roi,
+            stupina_id:
+              stupinaAleasa.id,
+          }
+        : roi
+    )
+  );
+}
 
 setShowAddToStupina(false);
 setSelectedStupina("");
 setSavingStupina(false);
 
+const numeFamilieText = esteStup
+  ? "Stupul " + selectedFamilie.numar_stup
+  : (selectedFamilie.tip || "Roi") + " " + selectedFamilie.numar;
+
 alert(
-  "Stupul " +
-    selectedFamilie.numar_stup +
+  numeFamilieText +
     " a fost asociat cu stupina „" +
     stupinaAleasa.nume +
     "”."
@@ -1054,63 +1076,81 @@ alert(
 }
 
 async function removeStupFromStupina(
-stup
+familie,
+esteStup = true
 ) {
-if (!stup) return;
+if (!familie) return;
 
 const stupinaActuala =
   stupine.find(
     (stupina) =>
       String(stupina.id) ===
-      String(stup.stupina_id)
+      String(familie.stupina_id)
   );
+
+const numeFamilieText = esteStup
+  ? "stupul " + familie.numar_stup
+  : (familie.tip || "roiul") + " " + familie.numar;
 
 const confirmare =
   window.confirm(
-    "Vrei să scoți stupul " +
-      stup.numar_stup +
+    "Vrei să scoți " +
+      numeFamilieText +
       " din stupina „" +
       (stupinaActuala?.nume ||
         "actuală") +
-      "”?\n\nStupul nu va fi șters. Va rămâne în tabelul principal fără stupină."
+      ”?\n\nFamilia nu va fi ștearsă. Va rămâne în tabelul principal fără stupină."
   );
 
 if (!confirmare) return;
 
+const tabelul = esteStup ? "stupi" : "roiuri";
+
 const { error } =
   await supabase
-    .from("stupi")
+    .from(tabelul)
     .update({
       stupina_id: null,
     })
-    .eq("id", stup.id);
+    .eq("id", familie.id);
 
 if (error) {
   console.error(error);
 
   alert(
-    "Eroare la scoaterea stupului din stupină:\n\n" +
+    "Eroare la scoaterea din stupină:\n\n" +
       error.message
   );
 
   return;
 }
 
-setStupi((prev) =>
-  prev.map((item) =>
-    item.id === stup.id
-      ? {
-          ...item,
-          stupina_id: null,
-        }
-      : item
-  )
-);
+if (esteStup) {
+  setStupi((prev) =>
+    prev.map((item) =>
+      item.id === familie.id
+        ? {
+            ...item,
+            stupina_id: null,
+          }
+        : item
+    )
+  );
+} else {
+  setRoiuri((prev) =>
+    prev.map((item) =>
+      item.id === familie.id
+        ? {
+            ...item,
+            stupina_id: null,
+          }
+        : item
+    )
+  );
+}
 
 alert(
-  "Stupul " +
-    stup.numar_stup +
-    " a fost scos din stupină."
+  "Familia a fost scoasă din stupină."
 );
 
 }
@@ -1359,7 +1399,7 @@ alert(
 
 ============================================================
 
-ȘTERGERE STUP
+ȘTERGERE STUP / ROI
 
 ============================================================
 */
@@ -1475,6 +1515,70 @@ alert(
 
 setDeletingStup(null);
 
+}
+
+async function deleteRoi(roi) {
+if (!roi || !roi.id)
+return;
+
+const confirmare =
+  window.confirm(
+    "⚠️ ATENȚIE!\n\n" +
+      "Sigur vrei să ștergi " +
+      (roi.tip || "Roiul") +
+      " " +
+      roi.numar +
+      "?\n\n" +
+      "Vor fi șterse și verificările și tratamentele asociate.\n\n" +
+      "Această acțiune NU poate fi anulată."
+  );
+
+if (!confirmare) return;
+
+setDeletingRoi(roi.id);
+
+const { error: tratamenteError } = await supabase
+  .from("tratamente")
+  .delete()
+  .eq("roi_id", roi.id);
+
+if (tratamenteError) {
+  console.error(tratamenteError);
+  alert("Eroare la ștergerea tratamentelor asociate roiului.");
+  setDeletingRoi(null);
+  return;
+}
+
+const { error: verificariError } = await supabase
+  .from("verificari")
+  .delete()
+  .eq("roi_id", roi.id);
+
+if (verificariError) {
+  console.error(verificariError);
+  alert("Eroare la ștergerea verificărilor asociate roiului.");
+  setDeletingRoi(null);
+  return;
+}
+
+const { error: roiError } = await supabase
+  .from("roiuri")
+  .delete()
+  .eq("id", roi.id);
+
+if (roiError) {
+  console.error(roiError);
+  alert("Eroare la ștergerea roiului/nucleului:\n\n" + roiError.message);
+  setDeletingRoi(null);
+  return;
+}
+
+setRoiuri((prev) => prev.filter((item) => item.id !== roi.id));
+setTratamente((prev) => prev.filter((t) => t.roi_id !== roi.id));
+setVerificari((prev) => prev.filter((v) => v.roi_id !== roi.id));
+
+alert("Roiul/nucleul a fost șters cu succes.");
+setDeletingRoi(null);
 }
 
 /*
@@ -2156,6 +2260,7 @@ original: stup,
     origine:
       roi.origine,
     tip: roi.tip,
+    stupina_id: roi.stupina_id,
     original: roi,
   })
 ),
@@ -2971,18 +3076,11 @@ return (
                 familie.tipFamilie ===
                 "Stup";
 
-              const stupinaFamilie =
-                esteStup
-                  ? stupine.find(
-                      (stupina) =>
-                        String(
-                          stupina.id
-                        ) ===
-                        String(
-                          familie.stupina_id
-                        )
-                    )
-                  : null;
+              const stupinaFamilie = stupine.find(
+                (stupina) =>
+                  String(stupina.id) ===
+                  String(familie.stupina_id)
+              );
 
               return (
                 <tr
@@ -3078,7 +3176,7 @@ return (
                           </div>
                         )}
                       </div>
-                    ) : esteStup ? (
+                    ) : (
                       <span
                         style={
                           styles.noStupina
@@ -3086,8 +3184,6 @@ return (
                       >
                         Fără stupină
                       </span>
-                    ) : (
-                      "—"
                     )}
                   </td>
 
@@ -3304,79 +3400,77 @@ return (
                         📝 Verifică
                       </button>
 
-                      {esteStup && (
-                        <>
-                          <button
-                            style={
-                              styles.stupinaActionButton
-                            }
-                            onClick={() => {
-                              setSelectedFamilie(
-                                familie.original
-                              );
+                      <button
+                        style={
+                          styles.stupinaActionButton
+                        }
+                        onClick={() => {
+                          setSelectedFamilie({
+                            ...familie.original,
+                            tipFamilie: esteStup ? "Stup" : "Roi"
+                          });
 
-                              setSelectedStupina(
-                                familie
-                                  .original
-                                  .stupina_id
-                                  ? String(
-                                      familie
-                                        .original
-                                        .stupina_id
-                                    )
-                                  : ""
-                              );
-
-                              setShowAddToStupina(
-                                true
-                              );
-                            }}
-                          >
-                            {familie
+                          setSelectedStupina(
+                            familie
                               .original
                               .stupina_id
-                              ? "🔄 Schimbă stupina"
-                              : "📍 Adaugă la stupină"}
-                          </button>
-
-                          {familie
-                            .original
-                            .stupina_id && (
-                            <button
-                              style={
-                                styles.removeStupinaButton
-                              }
-                              onClick={() =>
-                                removeStupFromStupina(
-                                  familie.original
+                              ? String(
+                                  familie
+                                    .original
+                                    .stupina_id
                                 )
-                              }
-                            >
-                              ❌ Scoate din stupină
-                            </button>
-                          )}
+                              : ""
+                          );
 
-                          <button
-                            style={
-                              styles.deleteStupButton
-                            }
-                            onClick={() =>
-                              deleteStup(
-                                familie.original
-                              )
-                            }
-                            disabled={
-                              deletingStup ===
-                              familie.id
-                            }
-                          >
-                            {deletingStup ===
-                            familie.id
-                              ? "Se șterge..."
-                              : "🗑️ Șterge"}
-                          </button>
-                        </>
+                          setShowAddToStupina(
+                            true
+                          );
+                        }}
+                      >
+                        {familie
+                          .original
+                          .stupina_id
+                          ? "🔄 Schimbă stupina"
+                          : "📍 Adaugă la stupină"}
+                      </button>
+
+                      {familie
+                        .original
+                        .stupina_id && (
+                        <button
+                          style={
+                            styles.removeStupinaButton
+                          }
+                          onClick={() =>
+                            removeStupFromStupina(
+                              familie.original,
+                              esteStup
+                            )
+                          }
+                        >
+                          ❌ Scoate din stupină
+                        </button>
                       )}
+
+                      <button
+                        style={
+                          styles.deleteStupButton
+                        }
+                        onClick={() => {
+                          if (esteStup) {
+                            deleteStup(familie.original);
+                          } else {
+                            deleteRoi(familie.original);
+                          }
+                        }}
+                        disabled={
+                          deletingStup === familie.id || deletingRoi === familie.id
+                        }
+                      >
+                        {deletingStup === familie.id || deletingRoi === familie.id
+                          ? "Se șterge..."
+                          : "🗑️ Șterge"}
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -4564,12 +4658,9 @@ return (
             styles.modalDescription
           }
         >
-          Stupul{" "}
-          <strong>
-            {
-              selectedFamilie?.numar_stup
-            }
-          </strong>{" "}
+          {selectedFamilie?.tipFamilie === "Stup"
+            ? "Stupul " + selectedFamilie?.numar_stup
+            : (selectedFamilie?.tip || "Roiul") + " " + selectedFamilie?.numar}{" "}
           va fi asociat cu stupina selectată.
         </p>
 
