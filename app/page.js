@@ -2142,7 +2142,111 @@ export default function Home() {
     getBulkAvailableRoiuri();
 
   return (
-    <main style={styles.page}>
+   <main style={styles.page} className="stupina-page">
+  return (
+  <main style={styles.page} className="stupina-page">
+
+    <style jsx global>{`
+      * {
+        box-sizing: border-box;
+      }
+
+      @media (max-width: 768px) {
+        .stupina-page {
+          padding: 12px !important;
+          overflow-x: hidden;
+          width: 100%;
+        }
+
+        .stupina-page > header {
+          flex-direction: column !important;
+          align-items: flex-start !important;
+          gap: 10px !important;
+        }
+
+        .stupina-page > header h1 {
+          font-size: 27px !important;
+        }
+
+        .stupina-page > header p {
+          font-size: 14px !important;
+        }
+
+        .stupina-page > section {
+          width: 100% !important;
+          max-width: 100% !important;
+        }
+
+        .stupina-page > section:first-of-type {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 8px !important;
+        }
+
+        .stupina-page > section:first-of-type > div {
+          min-width: 0 !important;
+          padding: 12px !important;
+        }
+
+        .stupina-page button {
+          min-height: 44px;
+          font-size: 15px !important;
+        }
+
+        .stupina-page input,
+        .stupina-page select,
+        .stupina-page textarea {
+          width: 100%;
+          max-width: 100%;
+          font-size: 16px !important;
+        }
+
+        .stupina-page table {
+          min-width: 1400px !important;
+          font-size: 12px !important;
+        }
+
+        .stupina-page th,
+        .stupina-page td {
+          padding: 8px !important;
+          white-space: nowrap;
+        }
+
+        .stupina-page [style*="position: fixed"] {
+          padding: 12px !important;
+        }
+
+        .stupina-page [style*="position: fixed"] > div {
+          width: 100% !important;
+          max-width: 100% !important;
+          max-height: 94vh !important;
+          overflow-y: auto !important;
+          border-radius: 16px !important;
+          padding: 18px !important;
+        }
+
+        .stupina-page [style*="grid-template-columns"] {
+          grid-template-columns: 1fr !important;
+        }
+      }
+
+      @media (max-width: 430px) {
+        .stupina-page {
+          padding: 9px !important;
+        }
+
+        .stupina-page > section:first-of-type {
+          grid-template-columns: 1fr 1fr !important;
+        }
+
+        .stupina-page button {
+          font-size: 14px !important;
+        }
+
+        .stupina-page h1 {
+          font-size: 25px !important;
+        }
+      }
+    `}</style>
       <header style={styles.header}>
         <div>
           <h1 style={styles.title}>
