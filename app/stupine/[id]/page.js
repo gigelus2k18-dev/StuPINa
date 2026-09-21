@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
-import VerificareModal from "../VerificareModal"; // Asigură-te că calea corespunde locului unde ai pus fișierul VerificareModal.jsx
+import VerificareModal from "../../VerificareModal";
 
 export default function StupinaPage() {
   const params = useParams();
