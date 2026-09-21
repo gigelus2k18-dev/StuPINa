@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
-import VerificareModal from "@/VerificareModal";
 
 export default function StupinaPage() {
   const params = useParams();
@@ -30,6 +29,18 @@ export default function StupinaPage() {
 
   const [selectedFamilie, setSelectedFamilie] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  const [verification, setVerification] = useState({
+    data_verificare: new Date().toISOString().split("T")[0],
+    matca: "",
+    are_matca: true,
+    an_matca: "",
+    rame: "",
+    rame_puiet: "",
+    rame_miere: "",
+    rame_polen: "",
+    observatii: "",
+  });
 
   useEffect(() => {
     if (id) {
@@ -61,10 +72,7 @@ export default function StupinaPage() {
       .eq("stupina_id", id)
       .order("numar_stup");
 
-    if (stupiError) {
-      console.error("EROARE STUPI:", stupiError);
-      alert("Eroare la încărcarea stupilor.");
-    } else {
+    if (!stupiError) {
       setStupi(stupiData || []);
     }
 
@@ -74,143 +82,122 @@ export default function StupinaPage() {
       .eq("stupina_id", id)
       .order("numar");
 
-    if (roiuriError) {
-      console.error("EROARE ROIURI:", roiuriError);
-      setRoiuri([]);
-    } else {
+    if (!roiuriError) {
       setRoiuri(roiuriData || []);
     }
 
-    const { data: allStupi, error: allStupiError } = await supabase
+    const { data: allStupi } = await supabase
       .from("stupi")
       .select("*")
       .order("numar_stup");
+    if (allStupi) setAvailableStupi(allStupi);
 
-    if (!allStupiError) {
-      setAvailableStupi(allStupi || []);
-    }
-
-    const { data: allRoiuri, error: allRoiuriError } = await supabase
+    const { data: allRoiuri } = await supabase
       .from("roiuri")
       .select("*")
       .order("numar");
-
-    if (!allRoiuriError) {
-      setAvailableRoiuri(allRoiuri || []);
-    }
+    if (allRoiuri) setAvailableRoiuri(allRoiuri);
 
     setLoading(false);
   }
 
   function openVerification(familie) {
     setSelectedFamilie(familie);
+    setVerification({
+      data_verificare: new Date().toISOString().split("T")[0],
+      matca: familie.matca || "",
+      are_matca: familie.are_matca !== undefined ? familie.are_matca : familie.matca === "Da",
+      an_matca: familie.an_matca || "",
+      rame: familie.rame || "",
+      rame_puiet: familie.rame_puiet || "",
+      rame_miere: familie.rame_miere || "",
+      rame_polen: familie.rame_polen || "",
+      observatii: familie.observatii || "",
+    });
     setShowVerification(true);
   }
 
-  async function addExistingStup(stup) {
-    const confirmare = window.confirm(
-      `Adaugi stupul nr. ${stup.numar_stup} în stupina "${stupina?.nume}"?`
-    );
+  async function saveVerification() {
+    if (!selectedFamilie) return;
+    setSaving(true);
+    const esteStup = selectedFamilie.tipFamilie === "Stup";
 
-    if (!confirmare) return;
+    const verificationData = {
+      data_verificare: verification.data_verificare,
+      matca: verification.matca || null,
+      are_matca: verification.are_matca,
+      an_matca: verification.an_matca ? Number(verification.an_matca) : null,
+      rame: verification.rame ? Number(verification.rame) : 0,
+      rame_puiet: verification.rame_puiet ? Number(verification.rame_puiet) : 0,
+      rame_miere: verification.rame_miere ? Number(verification.rame_miere) : 0,
+      rame_polen: verification.rame_polen ? Number(verification.rame_polen) : 0,
+      observatii: verification.observatii || null,
+      [esteStup ? "stup_id" : "roi_id"]: selectedFamilie.id,
+    };
 
-    const { error } = await supabase
-      .from("stupi")
-      .update({ stupina_id: id })
-      .eq("id", stup.id);
+    const { error: verificationError } = await supabase
+      .from("verificari")
+      .insert([verificationData]);
 
-    if (error) {
-      alert("Nu am putut adăuga stupul:\n\n" + error.message);
+    if (verificationError) {
+      alert("Eroare la salvarea verificării: " + verificationError.message);
+      setSaving(false);
       return;
     }
 
+    const updateData = {
+      matca: verification.matca || null,
+      are_matca: verification.are_matca,
+      an_matca: verification.an_matca ? Number(verification.an_matca) : null,
+      rame: verification.rame ? Number(verification.rame) : 0,
+      rame_puiet: verification.rame_puiet ? Number(verification.rame_puiet) : 0,
+      rame_miere: verification.rame_miere ? Number(verification.rame_miere) : 0,
+      rame_polen: verification.rame_polen ? Number(verification.rame_polen) : 0,
+      observatii: verification.observatii || null,
+    };
+
+    const tabel = esteStup ? "stupi" : "roiuri";
+    await supabase.from(tabel).update(updateData).eq("id", selectedFamilie.id);
+
+    alert("Verificarea a fost salvată!");
+    setShowVerification(false);
+    setSelectedFamilie(null);
+    setSaving(false);
+    getData();
+  }
+
+  async function addExistingStup(stup) {
+    if (!window.confirm(`Adaugi stupul nr. ${stup.numar_stup} în stupină?`)) return;
+    await supabase.from("stupi").update({ stupina_id: id }).eq("id", stup.id);
     setShowAddStup(false);
     getData();
   }
 
   async function addExistingRoi(roi) {
-    const confirmare = window.confirm(
-      `Adaugi ${roi.tip || "Roi"} nr. ${roi.numar} în stupina "${stupina?.nume}"?`
-    );
-
-    if (!confirmare) return;
-
-    const { error } = await supabase
-      .from("roiuri")
-      .update({ stupina_id: id })
-      .eq("id", roi.id);
-
-    if (error) {
-      alert("Nu am putut adăuga roiul:\n\n" + error.message);
-      return;
-    }
-
+    if (!window.confirm(`Adaugi ${roi.tip || "Roi"} nr. ${roi.numar} în stupină?`)) return;
+    await supabase.from("roiuri").update({ stupina_id: id }).eq("id", roi.id);
     setShowAddRoi(false);
     getData();
   }
 
   async function addBulkToStupina() {
     const totalSelectate = selectedStupi.length + selectedRoiuri.length;
-
     if (totalSelectate === 0) {
-      alert("Selectează cel puțin un stup, roi sau nucleu.");
+      alert("Selectează cel puțin un element.");
       return;
     }
-
-    const confirmare = window.confirm(
-      `Vrei să adaugi ${totalSelectate} elemente în stupina "${stupina?.nume}"?`
-    );
-
-    if (!confirmare) return;
     setSaving(true);
-
     if (selectedStupi.length > 0) {
-      await supabase
-        .from("stupi")
-        .update({ stupina_id: id })
-        .in("id", selectedStupi);
+      await supabase.from("stupi").update({ stupina_id: id }).in("id", selectedStupi);
     }
-
     if (selectedRoiuri.length > 0) {
-      await supabase
-        .from("roiuri")
-        .update({ stupina_id: id })
-        .in("id", selectedRoiuri);
+      await supabase.from("roiuri").update({ stupina_id: id }).in("id", selectedRoiuri);
     }
-
     setSelectedStupi([]);
     setSelectedRoiuri([]);
     setShowBulkAdd(false);
     setSaving(false);
     getData();
-  }
-
-  function toggleStupSelection(stupId) {
-    setSelectedStupi((prev) =>
-      prev.includes(stupId) ? prev.filter((i) => i !== stupId) : [...prev, stupId]
-    );
-  }
-
-  function toggleRoiSelection(roiId) {
-    setSelectedRoiuri((prev) =>
-      prev.includes(roiId) ? prev.filter((i) => i !== roiId) : [...prev, roiId]
-    );
-  }
-
-  function selectAllStupi() {
-    if (selectedStupi.length === stupiDisponibili.length) {
-      setSelectedStupi([]);
-    } else {
-      setSelectedStupi(stupiDisponibili.map((s) => s.id));
-    }
-  }
-
-  function selectAllRoiuri() {
-    if (selectedRoiuri.length === roiuriDisponibili.length) {
-      setSelectedRoiuri([]);
-    } else {
-      setSelectedRoiuri(roiuriDisponibile.map((r) => r.id));
-    }
   }
 
   async function removeStup(stup) {
@@ -220,7 +207,7 @@ export default function StupinaPage() {
   }
 
   async function removeRoi(roi) {
-    if (!window.confirm(`Scoți ${roi.tip || "Roi"} nr. ${roi.numar} din stupină?`)) return;
+    if (!window.confirm(`Scoți roiul nr. ${roi.numar} din stupină?`)) return;
     await supabase.from("roiuri").update({ stupina_id: null }).eq("id", roi.id);
     getData();
   }
@@ -271,324 +258,106 @@ export default function StupinaPage() {
     })),
   ];
 
-  const filteredFamilii = familiiTabel.filter((familie) =>
-    String(familie.numar || "").toLowerCase().includes(search.toLowerCase())
+  const filteredFamilii = familiiTabel.filter((f) =>
+    String(f.numar || "").toLowerCase().includes(search.toLowerCase())
   );
 
   const totalFamilii = familiiTabel.length;
   const totalMiere = familiiTabel.reduce((sum, f) => sum + Number(f.miere_kg || 0), 0);
-  const totalPuiet = familiiTabel.reduce((sum, f) => sum + Number(f.rame_puiet || 0), 0);
-  const totalMiereRame = familiiTabel.reduce((sum, f) => sum + Number(f.rame_miere || 0), 0);
-  const totalPolen = familiiTabel.reduce((sum, f) => sum + Number(f.rame_polen || 0), 0);
-
-  const cuMatca = familiiTabel.filter(
-    (f) => f.are_matca === true || f.matca === "Da"
-  ).length;
+  const cuMatca = familiiTabel.filter((f) => f.are_matca === true || f.matca === "Da").length;
   const faraMatca = totalFamilii - cuMatca;
-  const active = familiiTabel.filter((f) => f.status === "Activ").length;
 
-  const stupiDisponibili = availableStupi.filter(
-    (s) => String(s.stupina_id || "") !== String(id)
-  );
-  const roiuriDisponibile = availableRoiuri.filter(
-    (r) => String(r.stupina_id || "") !== String(id)
-  );
-
-  if (loading) {
-    return (
-      <main style={styles.page}>
-        <div style={styles.loading}>Se încarcă stupina...</div>
-      </main>
-    );
-  }
-
-  if (!stupina) {
-    return (
-      <main style={styles.page}>
-        <h1>Stupina nu a fost găsită.</h1>
-        <Link href="/stupine">← Înapoi la stupine</Link>
-      </main>
-    );
-  }
+  if (loading) return <main style={styles.page}>Se încarcă...</main>;
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-        <Link href="/stupine" style={styles.back}>
-          ← Înapoi la stupine
-        </Link>
+        <Link href="/stupine" style={styles.back}>← Înapoi la stupine</Link>
+        <h1 style={styles.title}>🐝 {stupina?.nume}</h1>
 
-        <div style={styles.header}>
-          <div>
-            <h1 style={styles.title}>🐝 {stupina.nume}</h1>
-            <div style={styles.location}>
-              📍 {stupina.locatie || "Locație nespecificată"}
-            </div>
-            {stupina.observatii && <div style={styles.notes}>{stupina.observatii}</div>}
-          </div>
-
-          <div style={styles.headerButtons}>
-            <button onClick={() => setShowBulkAdd(true)} style={styles.bulkButton}>
-              📦 Adaugă în masă
-            </button>
-            <button onClick={() => setShowAddStup(true)} style={styles.primaryButton}>
-              ➕ Adaugă stup existent
-            </button>
-            <button onClick={() => setShowAddRoi(true)} style={styles.secondaryButton}>
-              🐝 Adaugă roi existent
-            </button>
-          </div>
+        <div style={styles.headerButtons}>
+          <button onClick={() => setShowBulkAdd(true)} style={styles.bulkButton}>📦 Adaugă în masă</button>
+          <button onClick={() => setShowAddStup(true)} style={styles.primaryButton}>➕ Adaugă stup existent</button>
+          <button onClick={() => setShowAddRoi(true)} style={styles.secondaryButton}>🐝 Adaugă roi existent</button>
         </div>
 
-        <div style={styles.stats}>
-          <div style={styles.stat}>
-            <strong>{totalFamilii}</strong>
-            <span>Familii</span>
-          </div>
-          <div style={styles.stat}>
-            <strong>{stupi.length}</strong>
-            <span>Stupi</span>
-          </div>
-          <div style={styles.stat}>
-            <strong>{roiuri.length}</strong>
-            <span>Roiuri/Nuclee</span>
-          </div>
-          <div style={styles.stat}>
-            <strong>{cuMatca}</strong>
-            <span>Cu matcă</span>
-          </div>
-          <div style={styles.stat}>
-            <strong>{faraMatca}</strong>
-            <span>Fără matcă</span>
-          </div>
-          <div style={styles.stat}>
-            <strong>{totalMiere.toFixed(1)}</strong>
-            <span>Kg miere</span>
-          </div>
-          <div style={styles.stat}>
-            <strong>{totalPuiet}</strong>
-            <span>Rame puiet</span>
-          </div>
-          <div style={styles.stat}>
-            <strong>{active}</strong>
-            <span>Active</span>
-          </div>
-        </div>
-
-        {faraMatca > 0 && (
-          <div style={styles.alert}>
-            ⚠️ Atenție: {faraMatca} familie/familii fără matcă.
-          </div>
-        )}
-
-        <div style={styles.toolbar}>
-          <input
-            type="text"
-            placeholder="🔎 Caută după număr..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={styles.search}
-          />
-          <div style={styles.smallStats}>
-            🍯 {totalMiereRame} rame miere · 🌼 {totalPolen} rame polen
-          </div>
-        </div>
-
+        {/* TABEL FAMILII */}
         <div style={styles.card}>
-          <div style={styles.cardHeader}>
-            <h2>Familiile din {stupina.nume}</h2>
-            <span>{filteredFamilii.length} rezultate</span>
-          </div>
-
-          {filteredFamilii.length === 0 ? (
-            <div style={styles.empty}>
-              Nu există încă familii în această stupină.
-            </div>
-          ) : (
-            <div style={styles.tableWrap}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Tip</th>
-                    <th>Nr.</th>
-                    <th>Rasa matcă</th>
-                    <th>Are matcă?</th>
-                    <th>An matcă</th>
-                    <th>Rame</th>
-                    <th>Puiet</th>
-                    <th>Miere kg</th>
-                    <th>Polen</th>
-                    <th>Status</th>
-                    <th>Origine</th>
-                    <th>Observații</th>
-                    <th>Acțiune</th>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th>Tip</th>
+                <th>Nr.</th>
+                <th>Matcă</th>
+                <th>Acțiune</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredFamilii.map((familie) => {
+                const esteStup = familie.tipFamilie === "Stup";
+                return (
+                  <tr key={`${familie.tipFamilie}-${familie.id}`}>
+                    <td>{familie.tipFamilie}</td>
+                    <td>#{familie.numar}</td>
+                    <td>{familie.are_matca ? "✅ Da" : "❌ Nu"}</td>
+                    <td>
+                      <button onClick={() => openVerification(familie)} style={styles.verifyButton}>
+                        📝 Verifică
+                      </button>
+                      <button onClick={() => (esteStup ? removeStup(familie.original) : removeRoi(familie.original))} style={styles.removeButton}>
+                        Scoate
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredFamilii.map((familie) => {
-                    const esteStup = familie.tipFamilie === "Stup";
-                    return (
-                      <tr key={`${familie.tipFamilie}-${familie.id}`}>
-                        <td>
-                          <span
-                            style={{
-                              ...styles.badge,
-                              background: esteStup ? "#e8f5e9" : "#fff3cd",
-                            }}
-                          >
-                            {familie.tipFamilie}
-                          </span>
-                        </td>
-                        <td>
-                          {esteStup ? (
-                            <Link href={`/stupi/${familie.numar}`} style={styles.numberLink}>
-                              #{familie.numar}
-                            </Link>
-                          ) : (
-                            <strong>#{familie.numar}</strong>
-                          )}
-                        </td>
-                        <td>{familie.matca || "-"}</td>
-                        <td>
-                          {familie.are_matca === true || familie.matca === "Da"
-                            ? "✅ Da"
-                            : "❌ Nu"}
-                        </td>
-                        <td>{familie.an_matca || "-"}</td>
-                        <td>{familie.rame ?? 0}</td>
-                        <td>{familie.rame_puiet ?? 0}</td>
-                        <td>{Number(familie.miere_kg || 0).toFixed(1)}</td>
-                        <td>{familie.rame_polen ?? 0}</td>
-                        <td>
-                          <select
-                            value={familie.status || ""}
-                            onChange={(e) => {
-                              if (esteStup) {
-                                updateStupStatus(familie.id, e.target.value);
-                              } else {
-                                updateRoiStatus(familie.id, e.target.value);
-                              }
-                            }}
-                            style={styles.select}
-                          >
-                            <option value="">-</option>
-                            <option value="Activ">Activ</option>
-                            <option value="Inactiv">Inactiv</option>
-                            {!esteStup && (
-                              <>
-                                <option value="Vândut">Vândut</option>
-                                <option value="Unit">Unit</option>
-                                <option value="Pierdut">Pierdut</option>
-                              </>
-                            )}
-                          </select>
-                        </td>
-                        <td>{familie.origine || "-"}</td>
-                        <td style={styles.observatii}>{familie.observatii || "-"}</td>
-                        <td>
-                          <div style={styles.actions}>
-                            <button
-                              onClick={() => openVerification(familie)}
-                              style={styles.verifyButton}
-                            >
-                              📝 Verifică
-                            </button>
-                            <button
-                              onClick={() =>
-                                esteStup
-                                  ? removeStup(familie.original)
-                                  : removeRoi(familie.original)
-                              }
-                              style={styles.removeButton}
-                            >
-                              Scoate
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                );
+              })}
+            </tbody>
+          </table>
         </div>
 
         {/* MODAL VERIFICARE UNIFICAT */}
         {showVerification && selectedFamilie && (
-          <VerificareModal
-            familia={selectedFamilie}
-            onClose={() => {
-              setShowVerification(false);
-              setSelectedFamilie(null);
-            }}
-            onSaved={() => {
-              setShowVerification(false);
-              setSelectedFamilie(null);
-              getData();
-            }}
-          />
-        )}
-
-        {/* MODAL ADAUGĂ ÎN MASĂ */}
-        {showBulkAdd && (
           <div style={styles.modalOverlay}>
-            <div style={styles.bulkModal}>
-              <div style={styles.modalHeader}>
-                <h2>📦 Adaugă în masă</h2>
-                <button
-                  onClick={() => setShowBulkAdd(false)}
-                  style={styles.close}
-                >
-                  ✕
-                </button>
+            <div style={styles.modal}>
+              <h2>📝 Verificare {selectedFamilie.tipFamilie} #{selectedFamilie.numar}</h2>
+              <div style={styles.formGrid}>
+                <label>Data: <input type="date" value={verification.data_verificare} onChange={(e) => setVerification({ ...verification, data_verificare: e.target.value })} style={styles.input} /></label>
+                <label>Rasa matcă: <input value={verification.matca} onChange={(e) => setVerification({ ...verification, matca: e.target.value })} style={styles.input} /></label>
+                <label>Are matcă?: 
+                  <select value={verification.are_matca ? "Da" : "Nu"} onChange={(e) => setVerification({ ...verification, are_matca: e.target.value === "Da" })} style={styles.input}>
+                    <option value="Da">Da</option>
+                    <option value="Nu">Nu</option>
+                  </select>
+                </label>
+                <label>Rame puiet: <input type="number" value={verification.rame_puiet} onChange={(e) => setVerification({ ...verification, rame_puiet: e.target.value })} style={styles.input} /></label>
               </div>
-              <button onClick={addBulkToStupina} style={styles.bulkSaveButton}>
-                Salvează selecția
-              </button>
+              <button onClick={saveVerification} disabled={saving} style={styles.saveButton}>{saving ? "Se salvează..." : "💾 Salvează"}</button>
+              <button onClick={() => setShowVerification(false)} style={styles.closeBtn}>Închide</button>
             </div>
           </div>
         )}
-
       </div>
     </main>
   );
 }
 
 const styles = {
-  page: { minHeight: "100vh", background: "#f5f7f6", padding: "30px 20px", fontFamily: "Arial, sans-serif" },
-  container: { maxWidth: "1600px", margin: "0 auto" },
-  loading: { textAlign: "center", padding: "80px", fontSize: "20px" },
-  back: { display: "inline-block", marginBottom: "20px", color: "#167a42", textDecoration: "none", fontWeight: "bold" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "20px", marginBottom: "25px", flexWrap: "wrap" },
-  title: { fontSize: "34px", margin: 0 },
-  location: { marginTop: "8px", color: "#555", fontSize: "17px" },
-  notes: { marginTop: "8px", color: "#777" },
-  headerButtons: { display: "flex", gap: "10px", flexWrap: "wrap" },
-  primaryButton: { border: "none", background: "#167a42", color: "white", padding: "12px 18px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" },
-  secondaryButton: { border: "none", background: "#e8a928", color: "#111", padding: "12px 18px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" },
-  bulkButton: { border: "none", background: "#2563eb", color: "white", padding: "12px 18px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" },
-  stats: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "12px", marginBottom: "20px" },
-  stat: { background: "white", padding: "18px", borderRadius: "10px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column", gap: "6px" },
-  alert: { background: "#fff3cd", border: "1px solid #ffe69c", padding: "14px", borderRadius: "8px", marginBottom: "20px" },
-  toolbar: { display: "flex", justifyContent: "space-between", gap: "15px", marginBottom: "15px", flexWrap: "wrap" },
-  search: { padding: "12px", border: "1px solid #ccc", borderRadius: "8px", width: "300px", maxWidth: "100%" },
-  smallStats: { padding: "12px", background: "white", borderRadius: "8px" },
-  card: { background: "white", borderRadius: "12px", boxShadow: "0 2px 10px rgba(0,0,0,0.06)", overflow: "hidden" },
-  cardHeader: { padding: "18px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #eee" },
-  tableWrap: { overflowX: "auto" },
-  table: { width: "100%", borderCollapse: "collapse", fontSize: "14px" },
-  badge: { padding: "5px 8px", borderRadius: "6px", fontWeight: "bold" },
-  numberLink: { color: "#167a42", fontWeight: "bold", textDecoration: "none" },
-  select: { padding: "6px", borderRadius: "6px", border: "1px solid #ccc" },
-  observatii: { maxWidth: "220px" },
-  actions: { display: "flex", gap: "6px", flexWrap: "wrap" },
-  verifyButton: { background: "#167a42", color: "white", border: "none", padding: "7px 10px", borderRadius: "6px", cursor: "pointer" },
-  removeButton: { background: "#f3f3f3", border: "1px solid #ccc", padding: "7px 10px", borderRadius: "6px", cursor: "pointer" },
-  empty: { padding: "40px", textAlign: "center", color: "#666" },
-  modalOverlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", justifyContent: "center", alignItems: "center", padding: "20px", zIndex: 1000 },
-  bulkModal: { background: "white", width: "100%", maxWidth: "900px", maxHeight: "90vh", overflowY: "auto", borderRadius: "14px", padding: "25px" },
-  modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" },
-  close: { border: "none", background: "transparent", fontSize: "22px", cursor: "pointer" },
-  bulkSaveButton: { border: "none", background: "#167a42", color: "white", padding: "13px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", width: "100%", marginTop: "20px" }
+  page: { minHeight: "100vh", background: "#f5f7f6", padding: "30px 20px", fontFamily: "Arial" },
+  container: { maxWidth: "1200px", margin: "0 auto" },
+  title: { fontSize: "30px", marginBottom: "20px" },
+  back: { color: "#167a42", textDecoration: "none", fontWeight: "bold" },
+  headerButtons: { display: "flex", gap: "10px", margin: "20px 0" },
+  primaryButton: { background: "#167a42", color: "white", padding: "10px", border: "none", borderRadius: "6px", cursor: "pointer" },
+  secondaryButton: { background: "#e8a928", padding: "10px", border: "none", borderRadius: "6px", cursor: "pointer" },
+  bulkButton: { background: "#2563eb", color: "white", padding: "10px", border: "none", borderRadius: "6px", cursor: "pointer" },
+  card: { background: "white", borderRadius: "8px", overflow: "hidden", marginTop: "20px" },
+  table: { width: "100%", borderCollapse: "collapse" },
+  verifyButton: { background: "#167a42", color: "white", padding: "5px 10px", border: "none", borderRadius: "4px", cursor: "pointer", marginRight: "5px" },
+  removeButton: { background: "#ccc", padding: "5px 10px", border: "none", borderRadius: "4px", cursor: "pointer" },
+  modalOverlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center" },
+  modal: { background: "white", padding: "20px", borderRadius: "10px", width: "500px", maxWidth: "90%" },
+  formGrid: { display: "grid", gap: "10px", margin: "15px 0" },
+  input: { width: "100%", padding: "8px", marginTop: "5px", boxSizing: "border-box" },
+  saveButton: { width: "100%", background: "#167a42", color: "white", padding: "10px", border: "none", borderRadius: "6px", cursor: "pointer", marginTop: "10px" },
+  closeBtn: { width: "100%", background: "#eee", padding: "8px", border: "none", borderRadius: "6px", cursor: "pointer", marginTop: "5px" }
 };
