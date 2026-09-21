@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
-import VerificareModal from "../../VerificareModal";
+import VerificareModal from "@/VerificareModal";
 
 export default function StupinaPage() {
   const params = useParams();
